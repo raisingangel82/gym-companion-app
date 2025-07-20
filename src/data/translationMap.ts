@@ -1,0 +1,20 @@
+// src/data/translationMap.ts
+export const translationMap: { [key: string]: string } = {
+  "panca orizzontale bilanciere": "barbell bench press",
+  "chest press inclinata": "incline dumbbell press",
+  "curl cavo basso in piedi": "cable standing curl",
+  "curl concentrato con manubrio": "dumbbell concentration curl",
+  "shoulder press": "dumbbell shoulder press",
+  "alzate laterali in piedi": "dumbbell lateral raise",
+  "lat machine": "cable lat pulldown",
+  "pulley presa stretta": "cable seated row",
+  "french press manubrio": "dumbbell lying triceps extension",
+  "triceps station": "triceps dip",
+  "leg press": "leg press",
+  "leg extension": "leg extension",
+  "leg curl seduto": "seated leg curl",
+  "croci panca inclinata": "incline dumbbell fly",
+  "vertical traction": "pull up",
+  "dips": "dips",
+  "squat con bilanciere": "barbell squat",
+};

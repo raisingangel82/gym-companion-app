@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Stili per la scrollbar personalizzata */
+/* Funziona su browser basati su WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #4a5568; /* Grigio scuro per la thumb */
+  border-radius: 10px;
+  border: 2px solid #1a202c; /* Colore di sfondo per creare un effetto "fluttuante" */
+}
+
+/* Stili per la scrollbar in modalità scura */
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #a0aec0; /* Grigio chiaro per la thumb */
+  border-color: #2d3748;
+}
