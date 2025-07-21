@@ -47,6 +47,7 @@ export const WorkoutEditorModal: React.FC<WorkoutEditorModalProps> = ({ isOpen, 
 
   // <-- NUOVA FUNZIONE per gestire l'immagine selezionata
   const handleImageSelected = (index: number, imageUrl: string) => {
+     console.log(`URL ricevuto dal finder per l'esercizio all'indice ${index}:`, imageUrl);
     handleExerciseChange(index, 'imageUrl', imageUrl);
     setFindingImageForIndex(null); // Chiude il finder
   };
@@ -63,6 +64,7 @@ export const WorkoutEditorModal: React.FC<WorkoutEditorModalProps> = ({ isOpen, 
       return;
     }
     const validExercises = exercises.filter(ex => ex.name.trim() !== '');
+        console.log("DATI INVIATI PER IL SALVATAGGIO:", validExercises);
     onSave({ name: name.trim(), exercises: validExercises });
   };
 

@@ -1,53 +1,71 @@
 // src/components/ExerciseLogModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { Button } from './ui/Button';
+import { Minus, Plus, X } from 'lucide-react';
 import type { Exercise, SetPerformance } from '../types';
-import { Plus, Minus } from 'lucide-react';
 
-interface ExerciseLogModalProps { isOpen: boolean; onClose: () => void; onSave: (performance: SetPerformance) => void; exercise: Exercise; setIndex: number; }
-const NumberStepper: React.FC<{ value: number; onChange: (v: number) => void; step: number }> = ({ value, onChange, step }) => (
-    <div className="flex items-center justify-center gap-4">
-        <button onClick={() => onChange(value - step)} className="h-14 w-14 flex items-center justify-center bg-gray-700 rounded-full text-white"><Minus size={28} /></button>
-        <span className="text-4xl font-bold w-24 text-center">{value}</span>
-        <button onClick={() => onChange(value + step)} className="h-14 w-14 flex items-center justify-center bg-gray-700 rounded-full text-white"><Plus size={28} /></button>
+interface LogModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (performance: SetPerformance) => void;
+  exercise: Exercise;
+  setIndex: number;
+}
+
+// Componente locale per lo stepper numerico
+const NumberStepper: React.FC<{ label: string; value: number; onChange: (value: number) => void; step: number; unit?: string }> = ({ label, value, onChange, step, unit }) => (
+  <div className="text-center">
+    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+    <div className="flex items-center justify-center gap-4 mt-2">
+      <Button onClick={() => onChange(value - step)} variant="outline" size="icon" className="rounded-full w-12 h-12"><Minus /></Button>
+      <div className="text-4xl font-bold w-24 text-center tabular-nums">
+        {value}{unit && <span className="text-xl ml-1">{unit}</span>}
+      </div>
+      <Button onClick={() => onChange(value + step)} variant="outline" size="icon" className="rounded-full w-12 h-12"><Plus /></Button>
     </div>
+  </div>
 );
 
-export const ExerciseLogModal: React.FC<ExerciseLogModalProps> = ({ isOpen, onClose, onSave, exercise, setIndex }) => {
-    const perf = exercise.performance?.[setIndex];
-    const [reps, setReps] = useState(0);
-    const [weight, setWeight] = useState(0);
-    const [notes, setNotes] = useState('');
+export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onSave, exercise, setIndex }) => {
+  const lastPerformance = exercise.performance?.[setIndex - 1] || exercise.performance?.[exercise.performance.length - 1];
+  const [reps, setReps] = useState(lastPerformance?.reps || Number(String(exercise.reps).split('-')[0]) || 8);
+  const [weight, setWeight] = useState(lastPerformance?.weight || 0);
 
-    useEffect(() => {
-        if (isOpen) {
-            const initialReps = perf?.reps ?? parseInt(exercise.reps);
-            const initialWeight = perf?.weight ? parseFloat(perf.weight) : parseFloat(exercise.weight);
-            setReps(isNaN(initialReps) ? 0 : initialReps);
-            setWeight(isNaN(initialWeight) ? 0 : initialWeight);
-            setNotes(perf?.notes || '');
-        }
-    }, [isOpen, exercise, setIndex, perf]);
-    
-    if (!isOpen) return null;
+  const handleSave = () => {
+    onSave({ reps, weight });
+  };
 
-    return (
-        // FIX: Il contenitore principale si ferma a 96px (bottom-24) dal fondo.
-        // Lo sfondo sfocato e il contenuto sono confinati in quest'area sicura.
-        <div className="fixed inset-x-0 top-0 bottom-24 z-50 flex flex-col justify-end">
-            <div onClick={onClose} className="absolute inset-0 bg-black bg-opacity-70"></div>
-            <div className="relative z-10 bg-gray-800 text-white rounded-t-2xl p-4 mx-2">
-                <h3 className="text-xl font-bold text-center mb-1">{exercise.name}</h3>
-                <p className="text-gray-400 text-center mb-6">Registra Set {setIndex + 1}</p>
-                <div className="space-y-6">
-                    <div><label className="block text-center text-lg mb-2">Ripetizioni</label><NumberStepper value={reps} onChange={setReps} step={1} /></div>
-                    <div><label className="block text-center text-lg mb-2">Peso (kg)</label><NumberStepper value={weight} onChange={setWeight} step={2.5} /></div>
-                    <div><textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Aggiungi una nota..." className="w-full bg-gray-700 rounded-lg p-3" rows={2} /></div>
-                </div>
-                <div className="mt-8 grid grid-cols-2 gap-3">
-                    <button onClick={onClose} className="py-4 bg-gray-600 rounded-lg font-bold">Annulla</button>
-                    <button onClick={() => onSave({ reps, weight: weight.toString(), notes })} className="py-4 bg-green-600 rounded-lg font-bold">Salva</button>
-                </div>
-            </div>
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+          <div className="fixed inset-0 bg-black/30" />
+        </Transition.Child>
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center">
+            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
+                <header className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
+                  <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">
+                    Set {setIndex + 1} - {exercise.name}
+                  </Dialog.Title>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Obiettivo: {exercise.reps} reps</p>
+                </header>
+                
+                <main className="p-6 space-y-6">
+                  <NumberStepper label="Ripetizioni" value={reps} onChange={setReps} step={1} />
+                  <NumberStepper label="Peso" value={weight} onChange={setWeight} step={2.5} unit="kg" />
+                </main>
+
+                <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end">
+                  <Button onClick={handleSave} className="w-full">Salva Performance</Button>
+                </footer>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
         </div>
-    );
+      </Dialog>
+    </Transition>
+  );
 };

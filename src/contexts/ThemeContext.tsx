@@ -15,46 +15,17 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-/**
- * Funzione sicura per leggere i valori dal localStorage e fornire uno stato iniziale garantito.
- * Questo previene errori di runtime se i dati salvati non sono più validi.
- */
-const getInitialState = () => {
-  const defaultColor = themeColorPalettes[0];
-  const defaultShade: ColorShade = '700';
-
-  // 1. Carica il colore salvato. Se non è valido, usa il colore di default.
-  const savedColorName = localStorage.getItem('theme_color');
-  const color = themeColorPalettes.find(p => p.base === savedColorName) || defaultColor;
-
-  // 2. Carica la tonalità salvata.
-  const savedShade = localStorage.getItem('theme_shade');
-
-  // 3. VALIDA la tonalità: controlla che la tonalità salvata esista nella palette del colore caricato.
-  //    Se non esiste, usa la tonalità di default. Questo è il fix cruciale.
-  const shade = (savedShade && Object.keys(color.shades).includes(savedShade)
-    ? savedShade
-    : defaultShade) as ColorShade;
-  
-  // 4. Carica la modalità light/dark.
-  const savedMode = localStorage.getItem('theme');
-  const mode = (savedMode === 'light' || savedMode === 'dark') ? savedMode : 'light';
-
-  return { color, shade, mode };
-};
-
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  // Inizializza lo stato usando la nostra funzione sicura
-  const initialState = getInitialState();
-  
-  const [theme, setTheme] = useState<'light' | 'dark'>(initialState.mode);
-  const [activeColor, setActiveColorState] = useState<ColorPalette>(initialState.color);
-  const [activeShade, setActiveShadeState] = useState<ColorShade>(initialState.shade);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'light');
+  const [activeColor, setActiveColorState] = useState<ColorPalette>(() => {
+    const saved = localStorage.getItem('theme_color');
+    return themeColorPalettes.find(p => p.base === saved) || themeColorPalettes[0];
+  });
+  const [activeShade, setActiveShadeState] = useState<ColorShade>(() => (localStorage.getItem('theme_shade') as ColorShade) || '700');
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
+    root.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -73,12 +44,7 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('theme_shade', shade);
   };
 
-  // Questa computazione ora è sicura perché lo stato iniziale è sempre valido.
-  const activeTheme = useMemo(() => {
-    // Aggiungiamo un'ulteriore sicurezza: se per qualche motivo il calcolo fallisce,
-    // ritorna una tonalità di default di quella palette.
-    return activeColor.shades[activeShade] || activeColor.shades['700'];
-  }, [activeColor, activeShade]);
+  const activeTheme = useMemo(() => activeColor.shades[activeShade], [activeColor, activeShade]);
 
   const value = { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme };
 
@@ -87,8 +53,6 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme deve essere usato all\'interno di un ThemeProvider');
-  }
+  if (!context) throw new Error('useTheme must be used within a ThemeProvider');
   return context;
 };

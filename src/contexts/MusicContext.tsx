@@ -2,47 +2,38 @@
 
 import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
 
+// L'interfaccia del player di YouTube
+interface YouTubePlayer {
+  playVideo: () => void;
+  pauseVideo: () => void;
+  getPlayerState: () => number;
+}
+
 interface MusicContextType {
-  videoUrl: string;
+  videoId: string;
+  setVideoId: (id: string) => void;
   isPlaying: boolean;
-  playVideo: (url: string) => void;
-  togglePlayPause: () => void;
-  // Questo 'ref' ci permetterà di controllare direttamente il player di YouTube
-  playerRef: React.RefObject<any>; 
+  setIsPlaying: (isPlaying: boolean) => void;
+  playerRef: React.MutableRefObject<YouTubePlayer | null>;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 export const MusicProvider = ({ children }: { children: ReactNode }) => {
-  const [videoUrl, setVideoUrl] = useState('');
+  const [videoId, setVideoId] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
-  
-  // Usiamo un 'ref' per mantenere un riferimento al componente del player
-  // anche quando i componenti si ri-renderizzano.
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
 
-  // Funzione per avviare un nuovo video
-  const playVideo = (url: string) => {
-    setVideoUrl(url);
-    setIsPlaying(true);
-  };
-
-  // Funzione per mettere in play/pausa
-  const togglePlayPause = () => {
-    // Non fare nulla se non c'è un video caricato
-    if (!videoUrl || !playerRef.current) return;
-    
-    // Usa i metodi dell'API di YouTube attraverso il ref
-    if (isPlaying) {
-      playerRef.current?.pauseVideo();
+  const handleSetVideoId = (id: string) => {
+    setVideoId(id);
+    if (id) {
+      setIsPlaying(true);
     } else {
-      playerRef.current?.playVideo();
+      setIsPlaying(false);
     }
-    // Aggiorna lo stato
-    setIsPlaying(prevState => !prevState);
   };
-  
-  const value = { videoUrl, isPlaying, playVideo, togglePlayPause, playerRef };
+
+  const value = { videoId, setVideoId: handleSetVideoId, isPlaying, setIsPlaying, playerRef };
 
   return (
     <MusicContext.Provider value={value}>

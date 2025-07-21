@@ -1,66 +1,57 @@
-// src/components/BottomBar.tsx
 import React from 'react';
-import { Settings, Dumbbell, BarChart3, Music } from 'lucide-react'; 
 import { NavLink } from 'react-router-dom';
+import { Home, ClipboardList, BarChart2, Music } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import type { ActionConfig } from '../types/actions';
 
 interface BottomBarProps {
-  actionConfig: {
-    icon: React.ElementType;
-    onClick: () => void;
-    label: string;
-  };
+  actionConfig: ActionConfig;
 }
+
+const NavItem: React.FC<{ to: string; icon: React.ElementType; label: string }> = ({ to, icon: Icon, label }) => {
+  const { activeTheme } = useTheme();
+  return (
+    <NavLink to={to} className="flex flex-col items-center justify-center h-full w-full text-xs text-gray-500 dark:text-gray-400">
+      {({ isActive }) => (
+        <>
+          <Icon size={24} className={isActive ? activeTheme.textClass : ''} />
+          <span className={isActive ? activeTheme.textClass : ''}>{label}</span>
+        </>
+      )}
+    </NavLink>
+  );
+};
 
 export const BottomBar: React.FC<BottomBarProps> = ({ actionConfig }) => {
   const { activeTheme } = useTheme();
-  const { icon: ActionIcon, onClick, label } = actionConfig;
-  
-  const navItems = [
-    { icon: Dumbbell, label: 'Allenati', path: '/' },
-    { icon: Settings, label: 'Impostazioni', path: '/settings' },
-    { type: 'action' as const, icon: ActionIcon, action: onClick, label: label },
-    { icon: Music, label: 'Musica', path: '/music' },
-    { icon: BarChart3, label: 'Statistiche', path: '/stats' },
-  ];
+  const { icon: ActionIcon, onClick, label, disabled = false } = actionConfig;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 grid grid-cols-5 items-center z-40">
-      {navItems.map((item, index) => {
-        if (item.type === 'action') {
-          return (
-            <div key={index} className="flex justify-center relative z-50">
-              <button 
-                onClick={onClick} 
-                aria-label={label} 
-                className={`flex items-center justify-center text-white rounded-full w-14 h-14 -mt-7 border-4 border-white dark:border-gray-900 shadow-lg transition-all transform hover:scale-110 ${activeTheme.bgClass} hover:opacity-90 disabled:bg-gray-400`}
-              >
-                <ActionIcon size={28} />
-              </button>
-            </div>
-          );
-        }
-        return (
-          <NavLink
-            key={index}
-            to={item.path!}
-            end={item.path === '/'}
-            aria-label={item.label}
-            className="flex flex-col items-center justify-center h-full w-full text-xs text-gray-500 dark:text-gray-400 group"
-          >
-            {({ isActive }) => (
-              <>
-                <div className={`flex items-center justify-center w-12 h-8 rounded-lg transition-colors group-hover:bg-gray-100 dark:group-hover:bg-gray-700 ${isActive ? 'bg-gray-100 dark:bg-gray-700' : ''}`}>
-                    <item.icon 
-                      className={`h-6 w-6 transition-colors ${isActive ? activeTheme.textClass : 'text-gray-500 dark:text-gray-400'}`} 
-                    />
-                </div>
-                <span className={`mt-1 text-center ${isActive ? activeTheme.textClass : ''}`}>{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        );
-      })}
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 z-40">
+      <div className="container mx-auto flex justify-around items-center h-full max-w-lg">
+        <NavItem to="/" icon={Home} label="Workout" />
+        <NavItem to="/manage" icon={ClipboardList} label="Gestisci" />
+        <div className="w-16 h-16" />
+        <NavItem to="/stats" icon={BarChart2} label="Statistiche" />
+        <NavItem to="/music" icon={Music} label="Musica" />
+      </div>
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+        {/* Stile aggiornato per il pulsante */}
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={label}
+          className={`w-16 h-16 rounded-full flex items-center justify-center text-white transition-all shadow-lg border-4 border-gray-50 dark:border-gray-900 hover:scale-105
+            ${
+              disabled 
+                ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' 
+                : activeTheme.bgClass
+            }`
+          }
+        >
+          <ActionIcon size={32} />
+        </button>
+      </div>
     </nav>
   );
 };

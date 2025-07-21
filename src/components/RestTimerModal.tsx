@@ -1,55 +1,50 @@
 // src/components/RestTimerModal.tsx
-
 import React, { useState, useEffect } from 'react';
-import { Timer, X } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface RestTimerModalProps {
-  isOpen: boolean;
-  duration: number;
-  onClose: () => void;
+    isOpen: boolean;
+    duration: number;
+    onClose: () => void;
 }
 
 export const RestTimerModal: React.FC<RestTimerModalProps> = ({ isOpen, duration, onClose }) => {
-  const { activeTheme } = useTheme();
-  const [timeLeft, setTimeLeft] = useState(duration);
+    const [timeLeft, setTimeLeft] = useState(duration);
 
-  useEffect(() => {
-    if (isOpen) {
-      setTimeLeft(duration); // Resetta il timer ogni volta che il modale si apre
-    }
-  }, [isOpen, duration]);
+    useEffect(() => {
+        if (!isOpen) {
+            setTimeLeft(duration);
+            return;
+        }
+        if (timeLeft <= 0) {
+            onClose();
+            return;
+        }
+        const intervalId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+        return () => clearInterval(intervalId);
+    }, [isOpen, timeLeft, duration, onClose]);
 
-  useEffect(() => {
-    if (!isOpen || timeLeft <= 0) {
-      if (timeLeft <= 0) onClose();
-      return;
-    }
-    const timerId = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
-    return () => clearInterval(timerId);
-  }, [isOpen, timeLeft, onClose]);
+    if (!isOpen) return null;
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-  };
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
 
-  if (!isOpen) return null;
-
-  return (
-    // L'overlay non copre la bottom bar (bottom-16)
-    <div className="fixed inset-0 bottom-16 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className={`relative w-full max-w-sm rounded-lg shadow-lg flex flex-col items-center gap-4 p-6 ${activeTheme.bg} text-white`}>
-        <button onClick={onClose} className="absolute top-2 right-2 p-1 rounded-full hover:bg-white/20">
-          <X size={20} />
-        </button>
-        <Timer size={32} />
-        <div className="text-center">
-          <p className="font-bold text-lg">Riposo</p>
-          <p className="text-5xl font-mono">{formatTime(timeLeft)}</p>
+    return (
+        // FIX: Il contenitore ora ha `bottom-24` (96px), quindi si ferma SOPRA la BottomBar.
+        // Il blur non coprirà mai più il pulsante centrale.
+        <div className="fixed inset-x-0 top-0 bottom-24 bg-black bg-opacity-50 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white p-4">
+            <div className="text-center">
+                <p className="text-lg text-gray-300 mb-2">Riposo</p>
+                <p className="text-8xl font-mono font-bold tracking-tighter">
+                    {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+                </p>
+            </div>
+            
+            <button 
+                onClick={onClose} 
+                className="mt-8 px-12 py-4 bg-red-600/80 rounded-lg text-lg font-bold"
+            >
+                Salta
+            </button>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
