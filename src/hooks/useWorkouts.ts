@@ -1,6 +1,7 @@
 // src/hooks/useWorkouts.ts
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+// Le funzioni ora vengono chiamate direttamente, senza alias
 import { onWorkoutsSnapshot, addWorkout, updateWorkout, deleteWorkout } from '../services/firestore';
 import type { Workout, WorkoutData } from '../types';
 import { arrayUnion } from 'firebase/firestore';
@@ -15,13 +16,16 @@ export const useWorkouts = () => {
   });
 
   useEffect(() => {
+    // Il listener si attiva solo se c'è un utente
     if (!user) {
-        setIsLoading(false);
-        return;
+      setWorkouts([]); // Pulisce i dati al logout
+      setIsLoading(false);
+      return;
     }
 
     setIsLoading(true);
     
+    // FIX: onWorkoutsSnapshot ora viene chiamato nel modo corretto, come definito nel tuo file
     const unsubscribe = onWorkoutsSnapshot(
       (workoutsData) => {
         setWorkouts(workoutsData);
@@ -38,32 +42,43 @@ export const useWorkouts = () => {
     );
       
     return () => unsubscribe();
-  }, [user, activeWorkoutId]);
+  }, [user]); // Rimosso activeWorkoutId dalle dipendenze per evitare loop
 
-  /**
-   * Imposta una scheda come attiva e salva la scelta nel localStorage.
-   * @param id L'ID della scheda da attivare.
-   */
-  const handleSetActiveWorkout = (id: string) => {
-    setActiveWorkoutId(id);
-    localStorage.setItem('activeWorkoutId', id);
+  const handleSetActiveWorkout = (id: string | null) => {
+    if (id) {
+      setActiveWorkoutId(id);
+      localStorage.setItem('activeWorkoutId', id);
+    } else {
+      setActiveWorkoutId(null);
+      localStorage.removeItem('activeWorkoutId');
+    }
   };
 
-  const activeWorkout = workouts.find(w => w.id === activeWorkoutId) || null;
+  const activeWorkout = useMemo(() => workouts.find(w => w.id === activeWorkoutId) || null, [workouts, activeWorkoutId]);
 
-  /**
-   * Registra il completamento dell'allenamento attivo, aggiungendo la data odierna alla sua cronologia.
-   */
-  const completeActiveWorkout = async () => {
-    if (!activeWorkout) return;
-    const historyEntry = { date: new Date().toISOString() };
+  const saveSessionToHistory = async (workoutToSave: Workout | null) => {
+    if (!workoutToSave) return;
+    const performedExercises = workoutToSave.exercises.filter(ex => ex.performance && ex.performance.length > 0);
+    if (performedExercises.length === 0) {
+      alert("Nessun set registrato. Allenati prima di salvare la sessione!");
+      return;
+    }
+
+    const historyEntry = { date: new Date().toISOString(), exercises: performedExercises };
+    const cleanedExercises = workoutToSave.exercises.map(({ performance, ...rest }) => rest);
+
     try {
-        await updateWorkout(activeWorkout.id, {
-            history: arrayUnion(historyEntry)
+        // FIX: updateWorkout chiamato senza user.uid
+        await updateWorkout(workoutToSave.id, {
+            history: arrayUnion(historyEntry),
+            exercises: cleanedExercises,
         });
-        alert('Allenamento salvato nella cronologia!');
+        
+        // L'aggiornamento dello stato locale ora è gestito dal listener onSnapshot,
+        // quindi non è più necessario farlo manualmente qui.
+        alert('Allenamento salvato con successo nella cronologia!');
     } catch (error) {
-        console.error("Errore nel salvare il completamento dell'allenamento:", error);
+        console.error("Errore nel salvare la sessione:", error);
         alert("Si è verificato un errore nel salvataggio.");
     }
   };
@@ -72,10 +87,10 @@ export const useWorkouts = () => {
     workouts,
     isLoading,
     activeWorkout,
-    addWorkout,
-    updateWorkout,
+    addWorkout,      // Ora sono le funzioni originali
+    updateWorkout,   // che non richiedono l'ID utente
     deleteWorkout,
     setActiveWorkout: handleSetActiveWorkout,
-    completeActiveWorkout,
+    saveSessionToHistory,
   };
 };

@@ -1,66 +1,80 @@
 // src/services/firestore.ts
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, query, orderBy } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import type { Workout, WorkoutData } from '../types';
 
-/**
- * Ascolta in tempo reale i cambiamenti sulla collezione degli allenamenti dell'utente.
- * @param onSuccess Callback da eseguire in caso di successo.
- * @param onError Callback da eseguire in caso di errore.
- * @returns Una funzione per annullare l'iscrizione al listener.
- */
+console.log("✅ [firestore.ts] File caricato e oggetto 'db' importato:", db ? 'OK' : 'NON TROVATO');
+
 export const onWorkoutsSnapshot = (
   onSuccess: (workouts: Workout[]) => void,
   onError: (error: Error) => void
 ) => {
-  if (!auth.currentUser) {
-    onError(new Error("Utente non autenticato."));
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn("[firestore.ts] onWorkoutsSnapshot: Utente non autenticato.");
+    onSuccess([]);
     return () => {};
   }
-
-  const workoutsCollection = collection(db, 'users', auth.currentUser.uid, 'workouts');
+  console.log(`[firestore.ts] onWorkoutsSnapshot: In ascolto per l'utente ${user.uid}`);
   
-  const unsubscribe = onSnapshot(workoutsCollection, 
+  const workoutsCollection = collection(db, 'users', user.uid, 'workouts');
+  const q = query(workoutsCollection, orderBy('createdAt', 'desc'));
+  
+  const unsubscribe = onSnapshot(q, 
     (snapshot) => {
-      const workoutsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout));
+      // FIX: Logica di mapping completata
+      const workoutsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
+          history: data.history?.map((entry: any) => ({
+            ...entry,
+            date: (entry.date as Timestamp)?.toDate ? (entry.date as Timestamp).toDate() : new Date(entry.date)
+          })) || []
+        } as Workout;
+      });
+      console.log(`[firestore.ts] onWorkoutsSnapshot: Ricevuti ${workoutsData.length} documenti.`);
       onSuccess(workoutsData);
     },
     (error) => {
-      console.error("Errore nel listener di Firestore:", error);
+      console.error("[firestore.ts] onWorkoutsSnapshot: Errore nel listener:", error);
       onError(error);
     }
   );
-
   return unsubscribe;
 };
 
-/**
- * Aggiunge una nuova scheda di allenamento al database dell'utente.
- * @param workoutData I dati della nuova scheda.
- */
 export const addWorkout = async (workoutData: WorkoutData) => {
-  if (!auth.currentUser) throw new Error("Utente non autenticato per aggiungere una scheda.");
-  const workoutsCollection = collection(db, 'users', auth.currentUser.uid, 'workouts');
-  await addDoc(workoutsCollection, workoutData);
+  const user = auth.currentUser;
+  if (!user) {
+    console.error("[firestore.ts] addWorkout: Tentativo di aggiungere una scheda senza utente autenticato.");
+    throw new Error("Utente non autenticato per aggiungere una scheda.");
+  }
+  
+  console.log(`2. [firestore.ts] Tentativo di scrittura nella collezione: users/${user.uid}/workouts`);
+  
+  try {
+    const workoutsCollection = collection(db, 'users', user.uid, 'workouts');
+    const docRef = await addDoc(workoutsCollection, { ...workoutData, createdAt: Timestamp.now() });
+    console.log("✅ 3. [firestore.ts] Scheda aggiunta con successo! ID Documento:", docRef.id);
+  } catch (error) {
+    console.error("❌ ERRORE CRITICO durante la scrittura su Firestore:", error);
+    alert("Errore durante il salvataggio su Firebase. Controlla la console per i dettagli.");
+  }
 };
 
-/**
- * Aggiorna una scheda di allenamento esistente.
- * @param workoutId L'ID della scheda da aggiornare.
- * @param updatedData I dati da modificare.
- */
 export const updateWorkout = async (workoutId: string, updatedData: Partial<WorkoutData>) => {
-    if (!auth.currentUser) throw new Error("Utente non autenticato per aggiornare una scheda.");
-    const workoutDoc = doc(db, 'users', auth.currentUser.uid, 'workouts', workoutId);
+    const user = auth.currentUser;
+    if (!user) throw new Error("Utente non autenticato per aggiornare una scheda.");
+    const workoutDoc = doc(db, 'users', user.uid, 'workouts', workoutId);
     await updateDoc(workoutDoc, updatedData);
 };
 
-/**
- * Elimina una scheda di allenamento.
- * @param workoutId L'ID della scheda da eliminare.
- */
 export const deleteWorkout = async (workoutId: string) => {
-  if (!auth.currentUser) throw new Error("Utente non autenticato per eliminare una scheda.");
-  const workoutDoc = doc(db, 'users', auth.currentUser.uid, 'workouts', workoutId);
+  const user = auth.currentUser;
+  if (!user) throw new Error("Utente non autenticato per eliminare una scheda.");
+  const workoutDoc = doc(db, 'users', user.uid, 'workouts', workoutId);
   await deleteDoc(workoutDoc);
 };

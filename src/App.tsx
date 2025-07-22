@@ -4,19 +4,19 @@ import YouTube from 'react-youtube';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { MusicProvider, useMusic } from './contexts/MusicContext';
-import { PageActionProvider, usePageAction } from './contexts/PageActionContext'; // Aggiornato
+import { PageActionProvider, usePageAction } from './contexts/PageActionContext';
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
 import { ManagePage } from './pages/ManagePage';
 import { WorkoutPage } from './pages/WorkoutPage';
 import { StatsPage } from './pages/StatsPage';
 import { MusicPage } from './pages/MusicPage';
-import { Play, Pause, Dumbbell, Plus } from 'lucide-react'; // Aggiunta icona Plus
+import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react'; // Aggiunta icona Sparkles
 import type { ActionConfig } from './types/actions';
 
 function AppContent() {
   const { isPlaying, setIsPlaying, videoId, playerRef, decorativePlayerRef } = useMusic();
-  const { registeredAction } = usePageAction(); // Aggiornato
+  const { registeredAction } = usePageAction();
   const location = useLocation();
 
   const handleTogglePlay = () => {
@@ -33,33 +33,23 @@ function AppContent() {
   };
   
   const actionConfig: ActionConfig = useMemo(() => {
-    // Logica per la pagina Workout
+    // Logica per la pagina di allenamento
     if (location.pathname === '/') {
-      return {
-        icon: Dumbbell,
-        onClick: () => { if (registeredAction) registeredAction(); },
-        label: 'Registra Set',
-        disabled: !registeredAction,
-      };
+      return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
     }
     
-    // NUOVA Logica per la pagina Manage
+    // Logica per la pagina di gestione
     if (location.pathname === '/manage') {
-        return {
-            icon: Plus,
-            onClick: () => { if (registeredAction) registeredAction(); },
-            label: 'Crea Scheda',
-            disabled: !registeredAction,
-        };
+      return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
+    }
+
+    // NUOVA Logica per la pagina delle statistiche
+    if (location.pathname === '/stats') {
+        return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
     }
     
     // Logica di fallback per la musica
-    return {
-      icon: isPlaying ? Pause : Play,
-      onClick: handleTogglePlay,
-      label: isPlaying ? 'Pausa' : 'Play',
-      disabled: !videoId,
-    };
+    return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId };
   }, [location.pathname, isPlaying, videoId, registeredAction]);
 
   return (
@@ -85,7 +75,7 @@ function App() {
     <ThemeProvider>
       <SettingsProvider>
         <MusicProvider>
-          <PageActionProvider> {/* Aggiornato */}
+          <PageActionProvider>
             <AppContent />
           </PageActionProvider>
         </MusicProvider>

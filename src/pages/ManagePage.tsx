@@ -37,6 +37,7 @@ export const ManagePage: React.FC = () => {
   }, [registerAction]);
 
   const handleSaveWorkout = async (data: WorkoutData) => {
+  console.log("1. [ManagePage] Pulsante Salva premuto. Dati pronti per essere salvati:", data);
     try {
       if (editingWorkout) {
         await updateWorkout(editingWorkout.id, data);

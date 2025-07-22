@@ -1,6 +1,8 @@
-import React, { useMemo, useState, useEffect } from 'react'; // FIX: Aggiunto useEffect
+import React, { useMemo, useState, useEffect } from 'react';
 import { useWorkouts } from '../hooks/useWorkouts';
+import { usePageAction } from '../contexts/PageActionContext';
 import { Card } from '../components/ui/Card';
+import { ProModal } from '../components/ProModal';
 import { BarChart3, TrendingUp, Info } from 'lucide-react';
 import {
   LineChart,
@@ -14,68 +16,64 @@ import {
 } from 'recharts';
 import type { Workout, Exercise, SetPerformance } from '../types';
 
-// Definiamo la struttura per i dati del grafico
 interface ChartDataPoint {
   date: string;
   volume: number;
 }
 
-// Funzione per formattare la data sull'asse X del grafico
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
 };
 
 export const StatsPage: React.FC = () => {
   const { workouts } = useWorkouts();
+  const { registerAction } = usePageAction();
+  
+  const [proModalOpen, setProModalOpen] = useState(false);
 
-  // Usiamo useMemo per elaborare i dati solo quando i workout cambiano
   const exerciseStats = useMemo(() => {
     const stats: Record<string, ChartDataPoint[]> = {};
-
     workouts.forEach(workout => {
-      // Assumiamo che la cronologia sia un array di oggetti con 'date' e 'exercises'
       workout.history?.forEach(session => {
         if (!session.date || !session.exercises) return;
-
         session.exercises.forEach(exercise => {
           if (!exercise.performance || exercise.performance.length === 0) return;
-
-          // Calcola il volume totale per questo esercizio in questa sessione
-          const totalVolume = exercise.performance.reduce((sum, set) => {
-            return sum + (set.reps * set.weight);
-          }, 0);
-
+          const totalVolume = exercise.performance.reduce((sum, set) => sum + (set.reps * set.weight), 0);
           if (totalVolume > 0) {
             if (!stats[exercise.name]) {
               stats[exercise.name] = [];
             }
-            stats[exercise.name].push({
-              date: new Date(session.date).toISOString(),
-              volume: totalVolume,
-            });
+            stats[exercise.name].push({ date: new Date(session.date).toISOString(), volume: totalVolume });
           }
         });
       });
     });
-
-    // Ordina i dati di ogni esercizio per data
     Object.values(stats).forEach(dataPoints => {
       dataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     });
-
     return stats;
   }, [workouts]);
 
   const availableExercises = Object.keys(exerciseStats);
   const [selectedExercise, setSelectedExercise] = useState<string>('');
 
-  // Imposta il primo esercizio come preselezionato all'avvio
   useEffect(() => {
     if (availableExercises.length > 0 && !selectedExercise) {
       setSelectedExercise(availableExercises[0]);
     }
   }, [availableExercises, selectedExercise]);
   
+  // Registra l'azione per il pulsante centrale
+  useEffect(() => {
+    // Attiva il pulsante solo se ci sono esercizi da analizzare
+    if (availableExercises.length > 0) {
+      registerAction(() => setProModalOpen(true));
+    } else {
+      registerAction(null); // Altrimenti lo disabilita
+    }
+    return () => registerAction(null); // Pulisce l'azione quando si lascia la pagina
+  }, [availableExercises.length, registerAction]);
+
   const selectedExerciseData = exerciseStats[selectedExercise] || [];
 
   return (
@@ -95,7 +93,7 @@ export const StatsPage: React.FC = () => {
           <Info size={48} className="text-primary" />
           <h2 className="text-xl font-bold">Nessun Dato Disponibile</h2>
           <p className="text-gray-500 dark:text-gray-400">
-            Completa almeno un allenamento per iniziare a tracciare le tue statistiche qui.
+            Completa e salva almeno un allenamento per tracciare le tue statistiche qui.
           </p>
         </Card>
       ) : (
@@ -107,55 +105,28 @@ export const StatsPage: React.FC = () => {
               onChange={(e) => setSelectedExercise(e.target.value)}
               className="w-full sm:w-auto bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md p-2"
             >
-              {availableExercises.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
+              {availableExercises.map(name => ( <option key={name} value={name}>{name}</option> ))}
             </select>
           </div>
-          
           <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={selectedExerciseData}
-                margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
-              >
+              <LineChart data={selectedExerciseData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={formatDate} 
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                  axisLine={{ stroke: 'hsl(var(--border))' }}
-                  tickLine={{ stroke: 'hsl(var(--border))' }}
-                />
-                <YAxis 
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} 
-                  axisLine={{ stroke: 'hsl(var(--border))' }}
-                  tickLine={{ stroke: 'hsl(var(--border))' }}
-                  label={{ value: 'Volume (kg)', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: '0.5rem',
-                  }}
-                  labelFormatter={formatDate}
-                />
+                <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} />
+                <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} tickLine={{ stroke: 'hsl(var(--border))' }} label={{ value: 'Volume (kg)', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem' }} labelFormatter={formatDate} />
                 <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="volume"
-                  name="Volume (kg)"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: 'hsl(var(--primary))' }}
-                  activeDot={{ r: 8 }}
-                />
+                <Line type="monotone" dataKey="volume" name="Volume (kg)" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: 'hsl(var(--primary))' }} activeDot={{ r: 8 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </Card>
       )}
+      <ProModal 
+        isOpen={proModalOpen}
+        onClose={() => setProModalOpen(false)}
+        featureName="Report e Analisi AI"
+      />
     </div>
   );
 };
