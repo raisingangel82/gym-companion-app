@@ -1,17 +1,19 @@
-// src/components/RestTimerModal.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Transition } from '@headlessui/react';
+
+type TimerPosition = { top: number; left: number; width: number; height: number; };
 
 interface RestTimerModalProps {
-    isOpen: boolean;
+    position: TimerPosition | null;
     duration: number;
     onClose: () => void;
 }
 
-export const RestTimerModal: React.FC<RestTimerModalProps> = ({ isOpen, duration, onClose }) => {
+export const RestTimerModal: React.FC<RestTimerModalProps> = ({ position, duration, onClose }) => {
     const [timeLeft, setTimeLeft] = useState(duration);
 
     useEffect(() => {
-        if (!isOpen) {
+        if (!position) {
             setTimeLeft(duration);
             return;
         }
@@ -19,32 +21,54 @@ export const RestTimerModal: React.FC<RestTimerModalProps> = ({ isOpen, duration
             onClose();
             return;
         }
-        const intervalId = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+        const intervalId = setInterval(() => {
+            setTimeLeft(prev => prev - 1);
+        }, 1000);
         return () => clearInterval(intervalId);
-    }, [isOpen, timeLeft, duration, onClose]);
-
-    if (!isOpen) return null;
-
+    }, [position, timeLeft, duration, onClose]);
+    
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
+    const progress = (timeLeft / duration) * 100;
 
     return (
-        // FIX: Il contenitore ora ha `bottom-24` (96px), quindi si ferma SOPRA la BottomBar.
-        // Il blur non coprirà mai più il pulsante centrale.
-        <div className="fixed inset-x-0 top-0 bottom-24 bg-black bg-opacity-50 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white p-4">
-            <div className="text-center">
-                <p className="text-lg text-gray-300 mb-2">Riposo</p>
-                <p className="text-8xl font-mono font-bold tracking-tighter">
-                    {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
-                </p>
-            </div>
-            
-            <button 
-                onClick={onClose} 
-                className="mt-8 px-12 py-4 bg-red-600/80 rounded-lg text-lg font-bold"
+        <Transition
+            as={Fragment} // Usa Fragment per non renderizzare un div extra
+            show={!!position}
+            enter="transition-opacity duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="transition-opacity duration-300"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+        >
+            <div
+                className="fixed z-50 flex flex-col items-center justify-center text-white p-4 rounded-lg overflow-hidden"
+                style={{
+                    top: position?.top,
+                    left: position?.left,
+                    width: position?.width,
+                    height: position?.height,
+                }}
             >
-                Salta
-            </button>
-        </div>
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+                <div 
+                    className="absolute bottom-0 left-0 h-1 bg-primary/50" 
+                    style={{ width: `${progress}%` }}
+                ></div>
+                <div className="relative z-10 text-center">
+                    <p className="text-lg text-gray-300 mb-2">Riposo</p>
+                    <p className="text-6xl md:text-8xl font-mono font-bold tracking-tighter">
+                        {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+                    </p>
+                </div>
+                <button 
+                    onClick={onClose} 
+                    className="relative z-10 mt-8 px-8 py-3 bg-red-600/80 rounded-lg font-semibold"
+                >
+                    Salta
+                </button>
+            </div>
+        </Transition>
     );
 };

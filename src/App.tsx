@@ -4,41 +4,56 @@ import YouTube from 'react-youtube';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { MusicProvider, useMusic } from './contexts/MusicContext';
-import { WorkoutActionProvider, useWorkoutAction } from './contexts/WorkoutActionContext'; // Importato
+import { PageActionProvider, usePageAction } from './contexts/PageActionContext'; // Aggiornato
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
 import { ManagePage } from './pages/ManagePage';
 import { WorkoutPage } from './pages/WorkoutPage';
 import { StatsPage } from './pages/StatsPage';
 import { MusicPage } from './pages/MusicPage';
-import { Play, Pause, Dumbbell } from 'lucide-react';
+import { Play, Pause, Dumbbell, Plus } from 'lucide-react'; // Aggiunta icona Plus
 import type { ActionConfig } from './types/actions';
 
 function AppContent() {
-  const { isPlaying, setIsPlaying, videoId, playerRef } = useMusic();
-  const { registeredAction } = useWorkoutAction(); // Usiamo il nuovo contesto
+  const { isPlaying, setIsPlaying, videoId, playerRef, decorativePlayerRef } = useMusic();
+  const { registeredAction } = usePageAction(); // Aggiornato
   const location = useLocation();
 
   const handleTogglePlay = () => {
-    if (!playerRef.current) return;
-    if (isPlaying) playerRef.current.pauseVideo();
-    else playerRef.current.playVideo();
+    const mainPlayer = playerRef.current;
+    const decorativePlayer = decorativePlayerRef.current;
+    if (!mainPlayer) return;
+    if (isPlaying) {
+      mainPlayer.pauseVideo();
+      if (decorativePlayer) decorativePlayer.pauseVideo();
+    } else {
+      mainPlayer.playVideo();
+      if (decorativePlayer) decorativePlayer.playVideo();
+    }
   };
   
   const actionConfig: ActionConfig = useMemo(() => {
+    // Logica per la pagina Workout
     if (location.pathname === '/') {
       return {
         icon: Dumbbell,
-        onClick: () => {
-          // Esegue l'azione registrata dalla WorkoutPage, se esiste.
-          if (registeredAction) registeredAction();
-        },
+        onClick: () => { if (registeredAction) registeredAction(); },
         label: 'Registra Set',
-        // Il pulsante è disabilitato se non c'è un'azione registrata.
         disabled: !registeredAction,
       };
     }
-
+    
+    // NUOVA Logica per la pagina Manage
+    if (location.pathname === '/manage') {
+        return {
+            icon: Plus,
+            onClick: () => { if (registeredAction) registeredAction(); },
+            label: 'Crea Scheda',
+            disabled: !registeredAction,
+        };
+    }
+    
+    // Logica di fallback per la musica
     return {
       icon: isPlaying ? Pause : Play,
       onClick: handleTogglePlay,
@@ -59,19 +74,8 @@ function AppContent() {
         </Routes>
       </main>
       <BottomBar actionConfig={actionConfig} />
-
-      {videoId && (
-        <div style={{ position: 'absolute', top: -9999, left: -9999 }}>
-          <YouTube
-            videoId={videoId}
-            opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }}
-            onReady={(event) => { playerRef.current = event.target; }}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnd={() => setIsPlaying(false)}
-          />
-        </div>
-      )}
+      <svg style={{ position: 'absolute', height: 0, width: 0 }}><defs><filter id="remove-white-bg-filter"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -255 -255 -255 0 255" result="mask"/><feComposite in="SourceGraphic" in2="mask" operator="out" /></filter></defs></svg>
+      {videoId && ( <div style={{ position: 'absolute', top: -9999, left: -9999 }}><YouTube key={`main-${videoId}`} videoId={videoId} opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }} onReady={(event) => { playerRef.current = event.target; }} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnd={() => setIsPlaying(false)} /></div> )}
     </div>
   );
 }
@@ -81,9 +85,9 @@ function App() {
     <ThemeProvider>
       <SettingsProvider>
         <MusicProvider>
-          <WorkoutActionProvider> {/* Avvolgiamo AppContent con il nuovo provider */}
+          <PageActionProvider> {/* Aggiornato */}
             <AppContent />
-          </WorkoutActionProvider>
+          </PageActionProvider>
         </MusicProvider>
       </SettingsProvider>
     </ThemeProvider>
