@@ -1,5 +1,7 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Transition } from '@headlessui/react';
+import { useTheme } from '../contexts/ThemeContext';
+import { Button } from './ui/Button'; // Importa il componente Button
 
 type TimerPosition = { top: number; left: number; width: number; height: number; };
 
@@ -10,7 +12,15 @@ interface RestTimerModalProps {
 }
 
 export const RestTimerModal: React.FC<RestTimerModalProps> = ({ position, duration, onClose }) => {
+    const { activeTheme } = useTheme();
     const [timeLeft, setTimeLeft] = useState(duration);
+    const [lastPosition, setLastPosition] = useState<TimerPosition | null>(position);
+
+    useEffect(() => {
+        if (position) {
+            setLastPosition(position);
+        }
+    }, [position]);
 
     useEffect(() => {
         if (!position) {
@@ -33,7 +43,7 @@ export const RestTimerModal: React.FC<RestTimerModalProps> = ({ position, durati
 
     return (
         <Transition
-            as={Fragment} // Usa Fragment per non renderizzare un div extra
+            as={Fragment}
             show={!!position}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
@@ -43,17 +53,17 @@ export const RestTimerModal: React.FC<RestTimerModalProps> = ({ position, durati
             leaveTo="opacity-0"
         >
             <div
-                className="fixed z-50 flex flex-col items-center justify-center text-white p-4 rounded-lg overflow-hidden"
+                className="fixed z-40 flex flex-col items-center justify-center text-white p-4 rounded-lg overflow-hidden"
                 style={{
-                    top: position?.top,
-                    left: position?.left,
-                    width: position?.width,
-                    height: position?.height,
+                    top: lastPosition?.top,
+                    left: lastPosition?.left,
+                    width: lastPosition?.width,
+                    height: lastPosition?.height,
                 }}
             >
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
                 <div 
-                    className="absolute bottom-0 left-0 h-1 bg-primary/50" 
+                    className={`absolute bottom-0 left-0 h-1 ${activeTheme.bgClass} opacity-70`}
                     style={{ width: `${progress}%` }}
                 ></div>
                 <div className="relative z-10 text-center">
@@ -62,12 +72,13 @@ export const RestTimerModal: React.FC<RestTimerModalProps> = ({ position, durati
                         {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
                     </p>
                 </div>
-                <button 
+                {/* BOTTONE CORRETTO */}
+                <Button
                     onClick={onClose} 
-                    className="relative z-10 mt-8 px-8 py-3 bg-red-600/80 rounded-lg font-semibold"
+                    className={`relative z-10 mt-8 px-8 py-3 text-white font-semibold ${activeTheme.bgClass} hover:opacity-90`}
                 >
                     Salta
-                </button>
+                </Button>
             </div>
         </Transition>
     );

@@ -2,23 +2,24 @@
 
 // Definisce una singola performance registrata per un set
 export interface SetPerformance {
-  reps: string;
-  weight: string;
+  reps: number;
+  weight: number;
   notes?: string;
+  rpe?: number;
 }
 
 // Definisce un esercizio, ora con un array per le performance
 export interface Exercise {
   name: string;
   sets: number;
-  reps: string; // Reps target
-  weight: string; // Peso target
+  reps: string; // Reps target (mantenuto come stringa per range come "8-12")
+  weight: number; // Peso target
   performance?: SetPerformance[]; // Performance effettive
-  imageUrl?: string; // <-- AGGIUNGI QUESTA RIGA
+  imageUrl?: string;
 }
 
 export interface WorkoutHistoryEntry {
-    date: string;
+    date: string; // Formato ISO, es: "2025-07-23T12:30:00.000Z"
 }
 
 export interface WorkoutData {
@@ -32,10 +33,10 @@ export interface Workout extends WorkoutData {
   id: string;
 }
 
-// NUOVA STRUTTURA PER LA COLOR PALETTE (dal tuo file)
+// Struttura per la Color Palette
 export type ColorShade = '400' | '700' | '800';
 
-interface ColorDefinition {
+export interface ColorDefinition {
   hex: string;
   bgClass: string;
   textClass: string;
@@ -49,4 +50,22 @@ export interface ColorPalette {
   shades: {
     [key in ColorShade]: ColorDefinition;
   };
+}
+
+// NUOVA INTERFACCIA per una singola sessione di allenamento
+export interface WorkoutSession {
+  date: string; // Formato ISO, es: "2025-07-23T12:30:00.000Z"
+  exercises: Exercise[];
+  // Dati soggettivi di fine sessione
+  sessionNotes?: string;
+  doms?: number; // Scala 1-5 per i dolori muscolari
+  sleepQuality?: number; // Scala 1-5 per la qualità del sonno
+  stressLevel?: number; // Scala 1-5 per il livello di stress
+}
+
+export interface WorkoutData {
+  name: string;
+  exercises: Exercise[];
+  createdAt: Date;
+  history: WorkoutSession[]; // MODIFICATO: Usa la nuova interfaccia
 }
