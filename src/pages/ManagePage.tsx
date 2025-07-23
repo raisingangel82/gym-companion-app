@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-// FIX: Aggiunta l'icona 'Plus' all'importazione
 import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Plus } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePageAction } from '../contexts/PageActionContext';
+import { useAuth } from '../contexts/AuthContext';
 import { themeColorPalettes } from '../data/colorPalette';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -18,7 +18,9 @@ export const ManagePage: React.FC = () => {
   const { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme } = useTheme();
   const { restTime, setRestTime, autoRestTimer, setAutoRestTimer } = useSettings();
   const { registerAction } = usePageAction();
+  const { user } = useAuth();
   
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<Workout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,7 +39,6 @@ export const ManagePage: React.FC = () => {
   }, [registerAction]);
 
   const handleSaveWorkout = async (data: WorkoutData) => {
-  console.log("1. [ManagePage] Pulsante Salva premuto. Dati pronti per essere salvati:", data);
     try {
       if (editingWorkout) {
         await updateWorkout(editingWorkout.id, data);
@@ -91,7 +92,34 @@ export const ManagePage: React.FC = () => {
     reader.readAsText(file);
     if(event.target) event.target.value = '';
   };
-  const jsonExample = `[ { "name": "Seduta 1", "exercises": [ { "name": "Panca piana", "sets": 5, "reps": 5, "weight": "30kg" } ] } ]`;
+
+  const jsonExample = `[ { "name": "Seduta 1", "exercises": [ ... ] } ]`;
+
+  const handleGenerateAIClick = async () => {
+    if (user && user.plan === 'Pro') {
+      setIsGenerating(true);
+      const generatedWorkouts: Omit<WorkoutData, 'createdAt' | 'history'>[] = [
+        { name: "Programma AI: Full-Body A", exercises: [ { name: "Squat con Bilanciere", sets: 4, reps: "6-8", weight: 0 }, { name: "Panca Piana con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Rematore con Bilanciere", sets: 4, reps: "8-10", weight: 0 }, { name: "Machine Shoulder Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Leg Extension", sets: 3, reps: "12-15", weight: 0 }, { name: "Lat Machine", sets: 3, reps: "10-12", weight: 0 }, { name: "Alzate Laterali con Manubri", sets: 4, reps: "12-15", weight: 0 } ] },
+        { name: "Programma AI: Full-Body B", exercises: [ { name: "Stacco Rumeno con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Panca Inclinata con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Trazioni alla Sbarra (o T-Bar Row)", sets: 4, reps: "6-8", weight: 0 }, { name: "Arnold Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Leg Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Pulley Basso", sets: 3, reps: "10-12", weight: 0 }, { name: "Alzate Posteriori ai Cavi", sets: 4, reps: "12-15", weight: 0 } ] }
+      ];
+      try {
+        await Promise.all(
+          generatedWorkouts.map(workout => 
+            addWorkout({ ...workout, createdAt: new Date(), history: [] })
+          )
+        );
+        alert(`Programma di allenamento A/B di ${generatedWorkouts.length} schede creato con successo!`);
+      } catch (error) {
+        console.error("Errore durante la creazione delle schede AI:", error);
+        alert("Si è verificato un errore durante la generazione.");
+      } finally {
+        setIsGenerating(false);
+      }
+    } else {
+      setProFeatureName('Creazione Scheda con AI');
+      setProModalOpen(true);
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -100,7 +128,7 @@ export const ManagePage: React.FC = () => {
             <h2 className="text-xl font-bold flex items-center gap-2"><User /> Account</h2>
             <Button onClick={() => { setProFeatureName('tutte le funzionalità'); setProModalOpen(true); }} className={`text-white ${activeTheme.bgClass}`}><Sparkles size={16} /> Passa a Pro</Button>
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Attualmente stai usando il piano Free.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Attualmente stai usando il piano {user?.plan || 'Free'}.</p>
       </Card>
       <Card>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette /> Impostazioni</h2>
@@ -140,15 +168,16 @@ export const ManagePage: React.FC = () => {
       </Card>
       <div>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-          <div><h1 className="text-3xl font-bold">Le Tue Schede</h1><p className="text-gray-500 dark:text-gray-400">Seleziona una scheda da attivare, oppure creane una nuova con il pulsante <Plus className="inline h-4 w-4"/> in basso.</p></div>
+          <div><h1 className="text-3xl font-bold">Le Tue Schede</h1><p className="text-gray-500 dark:text-gray-400">Seleziona una scheda da attivare, oppure creane una nuova.</p></div>
         </header>
         <Card className="mb-4">
-          <h3 className="font-semibold mb-2 flex items-center gap-2"><Info size={18} /> Importa Scheda da File</h3>
-          <pre className="text-xs bg-gray-100 dark:bg-gray-700/50 p-2 rounded-md overflow-x-auto"><code>{jsonExample}</code></pre>
-          <div className="flex gap-2 w-full mt-4">
+          <h3 className="font-semibold mb-2 flex items-center gap-2"><Info size={18} /> Azioni Rapide</h3>
+          <div className="flex gap-2 w-full mt-2">
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileImport} className="hidden" />
-            <Button onClick={handleImportClick} variant="secondary" className="flex-1"><Upload size={16} /> Importa da File</Button>
-            <Button onClick={() => { setProFeatureName('Creazione Scheda con AI'); setProModalOpen(true); }} className={`flex-1 text-white ${activeTheme.bgClass}`}><Sparkles size={16} /> Crea con AI</Button>
+            <Button onClick={handleImportClick} variant="secondary" className="flex-1" disabled={isGenerating}><Upload size={16} /> Importa da File</Button>
+            <Button onClick={handleGenerateAIClick} className={`flex-1 text-white ${activeTheme.bgClass}`} disabled={isGenerating}>
+              <Sparkles size={16} /> {isGenerating ? 'Creazione in corso...' : 'Crea con AI'}
+            </Button>
           </div>
         </Card>
         {!isLoading && workouts.map(workout => (

@@ -81,6 +81,7 @@ export const useWorkouts = () => {
         alert("Si è verificato un errore nel salvataggio.");
     }
   };
+console.log('[useWorkouts] Stato attuale dei workout:', workouts);
 
   return {
     workouts,

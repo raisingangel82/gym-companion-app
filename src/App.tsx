@@ -1,25 +1,39 @@
-import React, { useMemo } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import YouTube from 'react-youtube';
+
+// Hooks, Tipi e Servizi
+import { useMusic, MusicProvider } from './contexts/MusicContext';
+import { usePageAction, PageActionProvider } from './contexts/PageActionContext';
+import { useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
-import { MusicProvider, useMusic } from './contexts/MusicContext';
-import { PageActionProvider, usePageAction } from './contexts/PageActionContext';
+import { updateUserProfile } from './services/firestore';
+import type { ActionConfig } from './types/actions';
+import type { UserProfile } from './types';
+
+// Componenti e Pagine
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
-import { ManagePage } from './pages/ManagePage';
+import { OnboardingModal } from './components/OnboardingModal';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { WorkoutPage } from './pages/WorkoutPage';
+import { ManagePage } from './pages/ManagePage';
 import { StatsPage } from './pages/StatsPage';
 import { MusicPage } from './pages/MusicPage';
-import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react'; // Aggiunta icona Sparkles
-import type { ActionConfig } from './types/actions';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
-function AppContent() {
-  const { isPlaying, setIsPlaying, videoId, playerRef, decorativePlayerRef } = useMusic();
+// Layout per l'applicazione principale (quando l'utente è loggato)
+function MainAppLayout() {
+  const { isPlaying, setIsPlaying, videoId, playlistId, playerRef, setCurrentTrack, decorativePlayerRef } = useMusic();
   const { registeredAction } = usePageAction();
   const location = useLocation();
+  const { user, logout } = useAuth();
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
 
-  const handleTogglePlay = () => {
+  const handleTogglePlay = useCallback(() => {
     const mainPlayer = playerRef.current;
     const decorativePlayer = decorativePlayerRef.current;
     if (!mainPlayer) return;
@@ -30,53 +44,98 @@ function AppContent() {
       mainPlayer.playVideo();
       if (decorativePlayer) decorativePlayer.playVideo();
     }
-  };
+  }, [isPlaying, playerRef, decorativePlayerRef]);
+  
+  const handleCompleteOnboarding = useCallback(async (data: UserProfile) => {
+    if (!user) return;
+    try {
+      await updateUserProfile(user.uid, data);
+      setIsOnboardingModalOpen(false);
+    } catch (error) {
+      console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
+    }
+  }, [user]);
   
   const actionConfig: ActionConfig = useMemo(() => {
-    // Logica per la pagina di allenamento
-    if (location.pathname === '/') {
-      return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
-    }
-    
-    // Logica per la pagina di gestione
-    if (location.pathname === '/manage') {
-      return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
-    }
+    if (location.pathname === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
+    if (location.pathname === '/manage') return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
+    if (location.pathname === '/stats') return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
+    return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId && !playlistId };
+  }, [location.pathname, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
 
-    // NUOVA Logica per la pagina delle statistiche
-    if (location.pathname === '/stats') {
-        return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
+  const shouldRenderPlayer = videoId || playlistId;
+  const playerOptions = {
+    height: '0',
+    width: '0',
+    playerVars: {
+      autoplay: 1,
+      ...(playlistId && {
+        listType: 'playlist',
+        list: playlistId,
+      }),
+    },
+  };
+
+  const handlePlayerStateChange = (event: any) => {
+    if (event.data === 1 && playerRef.current) { // Stato 1 = In Riproduzione
+      const trackData = playerRef.current.getVideoData();
+      setCurrentTrack({ id: trackData.video_id, title: trackData.title });
     }
-    
-    // Logica di fallback per la musica
-    return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId };
-  }, [location.pathname, isPlaying, videoId, registeredAction]);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <Header />
+      <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
       <main className="flex-1 overflow-y-auto pb-24 pt-16">
-        <Routes>
-          <Route path="/" element={<WorkoutPage />} />
-          <Route path="/manage" element={<ManagePage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/music" element={<MusicPage />} />
-        </Routes>
+        <Outlet />
       </main>
       <BottomBar actionConfig={actionConfig} />
+      
+      {/* Elementi non visibili (player e filtri) */}
       <svg style={{ position: 'absolute', height: 0, width: 0 }}><defs><filter id="remove-white-bg-filter"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -255 -255 -255 0 255" result="mask"/><feComposite in="SourceGraphic" in2="mask" operator="out" /></filter></defs></svg>
-      {videoId && ( <div style={{ position: 'absolute', top: -9999, left: -9999 }}><YouTube key={`main-${videoId}`} videoId={videoId} opts={{ height: '0', width: '0', playerVars: { autoplay: 1 } }} onReady={(event) => { playerRef.current = event.target; }} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnd={() => setIsPlaying(false)} /></div> )}
+      
+      {shouldRenderPlayer && (
+        <div style={{ position: 'absolute', top: -9999, left: -9999 }}>
+          <YouTube
+            key={playlistId ? `p-${playlistId}` : `v-${videoId}`}
+            videoId={videoId || undefined}
+            opts={playerOptions}
+            onReady={(event) => { playerRef.current = event.target; }}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnd={() => setIsPlaying(false)}
+            onStateChange={handlePlayerStateChange}
+          />
+        </div>
+      )}
+      
+      <OnboardingModal isOpen={isOnboardingModalOpen} onClose={() => setIsOnboardingModalOpen(false)} onComplete={handleCompleteOnboarding} />
     </div>
   );
 }
 
+// Componente App principale che gestisce il routing
 function App() {
   return (
     <ThemeProvider>
       <SettingsProvider>
         <MusicProvider>
           <PageActionProvider>
-            <AppContent />
+            <Routes>
+              {/* Rotte Pubbliche */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+
+              {/* Rotte Private protette */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<MainAppLayout />}>
+                  <Route path="/" element={<WorkoutPage />} />
+                  <Route path="/manage" element={<ManagePage />} />
+                  <Route path="/stats" element={<StatsPage />} />
+                  <Route path="/music" element={<MusicPage />} />
+                </Route>
+              </Route>
+            </Routes>
           </PageActionProvider>
         </MusicProvider>
       </SettingsProvider>

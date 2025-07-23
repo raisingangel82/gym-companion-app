@@ -1,7 +1,7 @@
 // src/components/Header.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Star } from 'lucide-react';
+import { LogOut, Star, UserCog } from 'lucide-react'; // Importa una nuova icona
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -9,9 +9,10 @@ import { AccountIcon } from './AccountIcon';
 
 interface HeaderProps {
   onLogout: () => void;
+  onOpenOnboarding: () => void; // <-- NUOVA PROP
 }
 
-export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ onLogout, onOpenOnboarding }) => {
   const { user } = useAuth();
   const { activeTheme } = useTheme(); 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -29,6 +30,11 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
   // @ts-ignore - 'plan' è una proprietà custom che simuliamo
   const plan = user?.plan || 'Free';
+
+  const handleProfileClick = () => {
+    onOpenOnboarding();
+    setIsMenuOpen(false);
+  };
 
   return (
     <header className="flex-shrink-0 h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-gray-800">
@@ -50,6 +56,15 @@ export const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                 <p className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">{user?.email || 'Utente Anonimo'}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">Piano: {plan}</p>
               </div>
+              
+              {/* NUOVO PULSANTE PER APRIRE IL MODALE */}
+              <button
+                onClick={handleProfileClick}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <UserCog size={16} /> Modifica Profilo
+              </button>
+
               {plan !== 'pro' && (
                 <Link to="/upgrade" className="block" onClick={() => setIsMenuOpen(false)}>
                     <span className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">

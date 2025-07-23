@@ -123,7 +123,7 @@ export const WorkoutPage: React.FC = () => {
           const currentExercisePerformance = exercise.performance || [];
           return (
             <div key={exIndex} data-index={exIndex} className="h-full w-full snap-start flex-shrink-0 p-4 flex flex-col">
-              <Card className="flex-grow w-full flex flex-col overflow-hidden relative text-white">
+              <Card className="flex-grow w-full flex flex-col overflow-hidden relative text-white dark:bg-black">
                 {exercise.imageUrl ? (
                   <img src={exercise.imageUrl} alt={exercise.name} className="absolute inset-0 w-full h-full object-contain dark:invert" referrerPolicy="no-referrer" />
                 ) : (
@@ -131,7 +131,7 @@ export const WorkoutPage: React.FC = () => {
                       <ImageOff size={48} className="text-gray-400 dark:text-gray-600"/>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/10"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10"></div>
                 <div className="relative z-10 flex flex-col h-full p-4 justify-between">
                   <h2 className="text-2xl font-bold text-shadow-lg">{exercise.name}</h2>
                   <div className="space-y-4">
@@ -155,8 +155,15 @@ export const WorkoutPage: React.FC = () => {
       
       <RestTimerModal position={timerPosition} duration={restTime} onClose={() => setTimerPosition(null)} />
       
+      {/* CORREZIONE APPLICATA QUI SOTTO */}
       {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
-        <ExerciseLogModal isOpen={logModalState.isOpen} onClose={() => setLogModalState({ isOpen: false })} onSave={handleSavePerformance} exercise={logModalState.ex} setIndex={logModalState.setIndex} />
+        <ExerciseLogModal 
+          isOpen={logModalState.isOpen} 
+          onClose={() => setLogModalState({ isOpen: false })} 
+          onSave={handleSavePerformance} 
+          exercise={logModalState.ex} 
+          setIndex={logModalState.setIndex} 
+        />
       )}
       
       <SessionLogModal
