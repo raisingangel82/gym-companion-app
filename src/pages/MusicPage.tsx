@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMusic } from '../contexts/MusicContext';
 import { useTheme } from '../contexts/ThemeContext';
-// 'Play' e 'Pause' rimossi da questa riga
 import { Music2, Youtube as YoutubeIcon, SkipBack, SkipForward, Upload, ListMusic } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -30,7 +29,6 @@ const getYouTubePlaylistId = (url: string): string | null => {
 };
 
 export const MusicPage: React.FC = () => {
-  // 'isPlaying' rimosso da qui
   const { currentTrack, playlistId, playTrack, playPlaylist, nextTrack, previousTrack } = useMusic();
   const { activeTheme } = useTheme();
   const [url, setUrl] = useState('');

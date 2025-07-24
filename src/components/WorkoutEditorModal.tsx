@@ -55,7 +55,6 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
 
     const newExercises = [...exercises];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    // Scambia gli elementi
     [newExercises[index], newExercises[targetIndex]] = [newExercises[targetIndex], newExercises[index]];
     setExercises(newExercises);
   };
