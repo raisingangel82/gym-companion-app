@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useMusic } from '../contexts/MusicContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Music2, Youtube as YoutubeIcon, SkipBack, SkipForward, Upload, ListMusic } from 'lucide-react';
+import { Music2, Youtube as YoutubeIcon, SkipBack, SkipForward, Play, Pause, Upload, ListMusic } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -29,7 +29,7 @@ const getYouTubePlaylistId = (url: string): string | null => {
 };
 
 export const MusicPage: React.FC = () => {
-  const { currentTrack, playlistId, playTrack, playPlaylist, nextTrack, previousTrack } = useMusic();
+  const { currentTrack, playlistId, playTrack, playPlaylist, isPlaying, nextTrack, previousTrack } = useMusic();
   const { activeTheme } = useTheme();
   const [url, setUrl] = useState('');
 
@@ -83,7 +83,10 @@ export const MusicPage: React.FC = () => {
         </div>
         <div className="flex gap-2">
           <Input value={url} onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()} onChange={(e) => setUrl(e.target.value)} placeholder="Link video o playlist" />
-          <Button onClick={handleUrlSubmit}>Carica</Button>
+          {/* BOTTONE "CARICA" CON COLORE DEL TEMA */}
+          <Button onClick={handleUrlSubmit} className={`text-white ${activeTheme.bgClass} hover:opacity-90`}>
+            Carica
+          </Button>
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
            <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="block">

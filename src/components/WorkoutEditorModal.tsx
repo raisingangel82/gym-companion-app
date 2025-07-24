@@ -1,9 +1,10 @@
-import { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Trash2, PlusCircle, Image as ImageIcon } from 'lucide-react';
+import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { ExerciseFinder } from './ExerciseFinder';
+import { useTheme } from '../contexts/ThemeContext';
 import type { Workout, WorkoutData, Exercise } from '../types';
 
 interface EditorProps {
@@ -14,6 +15,7 @@ interface EditorProps {
 }
 
 export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onSave, workout }) => {
+  const { activeTheme } = useTheme();
   const [name, setName] = useState('');
   const [exercises, setExercises] = useState<Partial<Exercise>[]>([]);
   const [findingImageForIndex, setFindingImageForIndex] = useState<number | null>(null);
@@ -46,6 +48,17 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   const removeExercise = (index: number) => {
     setExercises(exercises.filter((_, i) => i !== index));
   };
+  
+  const handleMoveExercise = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === exercises.length - 1) return;
+
+    const newExercises = [...exercises];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    // Scambia gli elementi
+    [newExercises[index], newExercises[targetIndex]] = [newExercises[targetIndex], newExercises[index]];
+    setExercises(newExercises);
+  };
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -76,18 +89,24 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                     {workout ? 'Modifica Scheda' : 'Crea Nuova Scheda'}
                   </Dialog.Title>
                 </header>
+                
                 <main className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                   <div>
                     <label htmlFor="workout-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Scheda</label>
                     <Input id="workout-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Giorno A - Spinta" />
                   </div>
+                  
                   <div className="space-y-4">
                     {exercises.map((ex, index) => (
                       <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
-                        <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <Input value={ex.name ?? ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
-                          <Button variant="ghost" onClick={() => setFindingImageForIndex(findingImageForIndex === index ? null : index)} size="icon" className="text-sky-500"><ImageIcon size={16} /></Button>
-                          <Button onClick={() => removeExercise(index)} variant="ghost" size="icon" className="text-red-500"><Trash2 size={16} /></Button>
+                          <div className="flex-shrink-0 flex items-center">
+                            <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'up')} disabled={index === 0} className="text-gray-500"><ArrowUp size={16}/></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'down')} disabled={index === exercises.length - 1} className="text-gray-500"><ArrowDown size={16}/></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setFindingImageForIndex(findingImageForIndex === index ? null : index)} className="text-sky-500"><ImageIcon size={16} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => removeExercise(index)} className="text-red-500"><Trash2 size={16} /></Button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
@@ -108,9 +127,10 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                     <PlusCircle size={16} className="mr-2" /> Aggiungi Esercizio
                   </Button>
                 </main>
+
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end gap-2">
                   <Button variant="ghost" onClick={onClose}>Annulla</Button>
-                  <Button onClick={handleSave}>Salva Scheda</Button>
+                  <Button onClick={handleSave} className={`text-white ${activeTheme.bgClass} hover:opacity-90`}>Salva Scheda</Button>
                 </footer>
               </Dialog.Panel>
             </Transition.Child>
