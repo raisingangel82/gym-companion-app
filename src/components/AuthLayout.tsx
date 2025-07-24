@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Dumbbell } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 

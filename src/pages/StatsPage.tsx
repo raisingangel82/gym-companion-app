@@ -1,13 +1,13 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { usePageAction } from '../contexts/PageActionContext';
-import { useTheme } from '../contexts/ThemeContext'; // Importa il tema
+import { useTheme } from '../contexts/ThemeContext';
 import { Card } from '../components/ui/Card';
 import { ProModal } from '../components/ProModal';
 import { BarChart3, TrendingUp, Info } from 'lucide-react';
 import {
-  AreaChart, // Modificato
-  Area,      // Modificato
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,7 +15,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { Workout, Exercise, SetPerformance } from '../types';
+import type { Workout } from '../types';
 
 interface ChartDataPoint {
   date: string;
@@ -29,11 +29,10 @@ const formatDate = (dateString: string) => {
 export const StatsPage: React.FC = () => {
   const { workouts } = useWorkouts();
   const { registerAction } = usePageAction();
-  const { theme, activeTheme } = useTheme(); // Usa il tema per i colori
+  const { theme, activeTheme } = useTheme();
   
   const [proModalOpen, setProModalOpen] = useState(false);
 
-  // Logica per calcolare le statistiche (invariata)
   const exerciseStats = useMemo(() => {
     const stats: Record<string, ChartDataPoint[]> = {};
     workouts.forEach(workout => {
@@ -80,9 +79,7 @@ export const StatsPage: React.FC = () => {
   }, [availableExercises.length, registerAction]);
 
   const selectedExerciseData = exerciseStats[selectedExercise] || [];
-
-  // Colore per le etichette degli assi basato sul tema
-  const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563'; // Grigio chiaro per dark, grigio scuro per light
+  const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -119,7 +116,6 @@ export const StatsPage: React.FC = () => {
           <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={selectedExerciseData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                {/* Definizione del gradiente per il riempimento */}
                 <defs>
                   <linearGradient id="themeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={activeTheme.hex} stopOpacity={0.4}/>
@@ -127,38 +123,11 @@ export const StatsPage: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={formatDate} 
-                  tick={{ fill: axisColor, fontSize: 12 }} 
-                  axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} 
-                  tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} 
-                />
-                <YAxis 
-                  tick={{ fill: axisColor, fontSize: 12 }} 
-                  axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} 
-                  tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} 
-                  label={{ value: 'Volume (kg)', angle: -90, position: 'insideLeft', fill: axisColor }} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', 
-                    borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB', 
-                    borderRadius: '0.5rem' 
-                  }} 
-                  labelFormatter={formatDate} 
-                />
+                <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} />
+                <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} label={{ value: 'Volume (kg)', angle: -90, position: 'insideLeft', fill: axisColor }} />
+                <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB', borderRadius: '0.5rem' }} labelFormatter={formatDate} />
                 <Legend wrapperStyle={{ color: axisColor }} />
-                <Area 
-                  type="monotone" 
-                  dataKey="volume" 
-                  name="Volume (kg)" 
-                  stroke={activeTheme.hex} // Colore della linea
-                  strokeWidth={2} 
-                  fill="url(#themeGradient)" // Riempimento con gradiente
-                  dot={{ r: 4, fill: activeTheme.hex }} 
-                  activeDot={{ r: 8, stroke: activeTheme.hex, fill: theme === 'dark' ? '#1F2937' : '#FFFFFF' }} 
-                />
+                <Area type="monotone" dataKey="volume" name="Volume (kg)" stroke={activeTheme.hex} strokeWidth={2} fill="url(#themeGradient)" dot={{ r: 4, fill: activeTheme.hex }} activeDot={{ r: 8, stroke: activeTheme.hex, fill: theme === 'dark' ? '#1F2937' : '#FFFFFF' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

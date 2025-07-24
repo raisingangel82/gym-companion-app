@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import YouTube from 'react-youtube';
 
@@ -23,6 +23,7 @@ import { StatsPage } from './pages/StatsPage';
 import { MusicPage } from './pages/MusicPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
 // Layout per l'applicazione principale (quando l'utente è loggato)
@@ -91,7 +92,6 @@ function MainAppLayout() {
       </main>
       <BottomBar actionConfig={actionConfig} />
       
-      {/* Elementi non visibili (player e filtri) */}
       <svg style={{ position: 'absolute', height: 0, width: 0 }}><defs><filter id="remove-white-bg-filter"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -255 -255 -255 0 255" result="mask"/><feComposite in="SourceGraphic" in2="mask" operator="out" /></filter></defs></svg>
       
       {shouldRenderPlayer && (
@@ -122,11 +122,9 @@ function App() {
         <MusicProvider>
           <PageActionProvider>
             <Routes>
-              {/* Rotte Pubbliche */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
-
-              {/* Rotte Private protette */}
+              <Route path="/upgrade" element={<UpgradePage />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<MainAppLayout />}>
                   <Route path="/" element={<WorkoutPage />} />

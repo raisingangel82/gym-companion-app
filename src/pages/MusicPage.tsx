@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useMusic } from '../contexts/MusicContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Music2, Youtube as YoutubeIcon, SkipBack, SkipForward, Play, Pause, Upload, ListMusic } from 'lucide-react';
+import { Music2, Youtube as YoutubeIcon, SkipBack, SkipForward, Upload, ListMusic } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -58,7 +58,6 @@ export const MusicPage: React.FC = () => {
       <Card className="w-full max-w-lg mx-auto flex flex-col justify-center overflow-hidden relative text-white dark:bg-black min-h-[400px]">
         {isMusicActive ? (
           <>
-            {/* CLASSE MODIFICATA: da object-cover a object-fill */}
             <img src={coverImageUrl} alt="Copertina brano" className="absolute inset-0 w-full h-full object-fill" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
             <div className="relative z-10 flex flex-col h-full p-6 justify-center text-center">
