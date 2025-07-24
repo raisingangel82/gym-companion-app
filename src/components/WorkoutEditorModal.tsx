@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -52,7 +52,6 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       alert("Il nome della scheda non può essere vuoto.");
       return;
     }
-    // Costruisce l'oggetto completo WorkoutData come richiesto dalla prop onSave
     const workoutDataToSave: WorkoutData = {
       name: name,
       exercises: exercises as Exercise[],
@@ -77,13 +76,11 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                     {workout ? 'Modifica Scheda' : 'Crea Nuova Scheda'}
                   </Dialog.Title>
                 </header>
-                
                 <main className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                   <div>
                     <label htmlFor="workout-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Scheda</label>
                     <Input id="workout-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Giorno A - Spinta" />
                   </div>
-                  
                   <div className="space-y-4">
                     {exercises.map((ex, index) => (
                       <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
@@ -99,7 +96,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                         </div>
                         {findingImageForIndex === index && (
                           <ExerciseFinder 
-                            exerciseName={ex.name}
+                            exerciseName={ex.name ?? ''}
                             onImageSelected={(imageUrl) => handleImageSelected(index, imageUrl)}
                             onClose={() => setFindingImageForIndex(null)}
                           />
@@ -111,7 +108,6 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                     <PlusCircle size={16} className="mr-2" /> Aggiungi Esercizio
                   </Button>
                 </main>
-
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end gap-2">
                   <Button variant="ghost" onClick={onClose}>Annulla</Button>
                   <Button onClick={handleSave}>Salva Scheda</Button>

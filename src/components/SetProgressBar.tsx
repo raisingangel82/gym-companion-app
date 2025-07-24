@@ -1,5 +1,3 @@
-// src/components/SetProgressBar.tsx
-import React from 'react';
 import type { Exercise } from '../types';
 
 interface SetProgressBarProps {
@@ -15,13 +13,16 @@ export const SetProgressBar: React.FC<SetProgressBarProps> = ({ exercise }) => {
             return 'bg-gray-200 dark:bg-gray-700'; // Non completato
         }
 
-        const perfWeight = parseFloat(perf.weight) || 0;
-        const targetWeightNum = parseFloat(targetWeight) || 0;
+        const perfWeight = perf.weight || 0;
+        const targetWeightNum = targetWeight || 0;
+        
+        // Gestisce reps come "8-12" prendendo il primo numero
+        const targetRepsNum = parseInt(String(targetReps).split(/[-|–]/)[0], 10) || 0;
 
-        if (perf.reps > parseInt(targetReps) || perfWeight > targetWeightNum) {
+        if (perf.reps > targetRepsNum || perfWeight > targetWeightNum) {
             return 'bg-sky-500'; // Blu - Migliore
         }
-        if (perf.reps < parseInt(targetReps) || perfWeight < targetWeightNum) {
+        if (perf.reps < targetRepsNum || perfWeight < targetWeightNum) {
             return 'bg-red-500'; // Rosso - Peggiore
         }
         return 'bg-green-500'; // Verde - In target

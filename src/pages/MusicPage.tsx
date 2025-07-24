@@ -29,7 +29,7 @@ const getYouTubePlaylistId = (url: string): string | null => {
 };
 
 export const MusicPage: React.FC = () => {
-  const { currentTrack, playlistId, playTrack, playPlaylist, isPlaying, nextTrack, previousTrack } = useMusic();
+  const { currentTrack, playlistId, playTrack, playPlaylist, nextTrack, previousTrack } = useMusic();
   const { activeTheme } = useTheme();
   const [url, setUrl] = useState('');
 

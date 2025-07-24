@@ -1,8 +1,3 @@
-// L'interfaccia non è più necessaria qui, ma puoi lasciarla se vuoi
-interface WgerExerciseInfo {
-  id: number; name: string; uuid: string;
-}
-
 const WGER_API_URL = "https://wger.de/api/v2";
 
 export const searchExercisesByName = async (term: string): Promise<any[]> => {
@@ -19,5 +14,3 @@ export const searchExercisesByName = async (term: string): Promise<any[]> => {
     return [];
   }
 };
-
-// La funzione getMainImageForExercise è stata eliminata.

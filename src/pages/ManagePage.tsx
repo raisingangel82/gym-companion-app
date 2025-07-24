@@ -94,7 +94,7 @@ export const ManagePage: React.FC = () => {
     if(event.target) event.target.value = '';
   };
 
-  const jsonExample = `[ { "name": "Seduta 1", "exercises": [ ... ] } ]`;
+  //const jsonExample = `[ { "name": "Seduta 1", "exercises": [ ... ] } ]`;
 
   const handleGenerateAIClick = async () => {
     if (user && user.plan === 'Pro') {

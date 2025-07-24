@@ -1,5 +1,5 @@
 // src/data/colorPalette.ts
-import type { ColorPalette, ColorShade, ColorDefinition } from '../types';
+import type { ColorPalette } from '../types';
 
 export const themeColorPalettes: ColorPalette[] = [
   { name: 'Pietra', base: 'stone', shades: {

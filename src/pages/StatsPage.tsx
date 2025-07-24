@@ -15,7 +15,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import type { Workout } from '../types';
+//import type { Workout } from '../types';
 
 interface ChartDataPoint {
   date: string;
