@@ -1,4 +1,5 @@
 import type { User as FirebaseUser } from 'firebase/auth';
+import type { ElementType } from 'react'; // <-- AGGIUNTO QUESTO IMPORT
 
 // --- Tipi per l'Allenamento ---
 
@@ -70,7 +71,16 @@ export interface UserProfile {
 /** Unisce l'utente di Firebase con il nostro profilo custom. */
 export type AppUser = FirebaseUser & Partial<UserProfile>;
 
+
 // --- Tipi per il Tema e l'UI ---
+
+/** Definisce la struttura per il pulsante d'azione centrale. */
+export interface ActionConfig {
+  icon: ElementType;
+  onClick: () => void;
+  label: string;
+  disabled?: boolean;
+}
 
 export type ColorShade = '400' | '700' | '800';
 
