@@ -8,7 +8,7 @@ initializeApp();
  * Funzione Callable per generare un piano di allenamento con AI.
  */
 // MODIFICA: Aggiunta l'opzione "cors: true" per permettere le chiamate da localhost
-export const generateAiWorkoutPlan = onCall({ region: "europe-west1", timeoutSeconds: 300, cors: true }, async (request) => {
+export const generateAiWorkoutPlan = onCall({ region: "us-central1", timeoutSeconds: 300, cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
   }
@@ -59,8 +59,8 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
 `;
 
   try {
-    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
-    const model = vertex_ai.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'us-central1' });
+    const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
