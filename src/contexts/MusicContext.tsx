@@ -1,20 +1,19 @@
-import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useRef, type ReactNode } from 'react';
 
-// Interfaccia estesa per il player di YouTube
 interface YouTubePlayer {
   playVideo: () => void;
   pauseVideo: () => void;
   nextVideo: () => void;
   previousVideo: () => void;
   getPlayerState: () => number;
-  getVideoData: () => { title: string; video_id: string }; // Per ottenere i dati del brano
+  getVideoData: () => { title: string; video_id: string };
 }
 
 interface MusicContextType {
   videoId: string | null;
   playlistId: string | null;
-  currentTrack: { id: string | null; title: string | null }; // NUOVO: Traccia le info del brano corrente
-  setCurrentTrack: (track: { id: string | null; title: string | null }) => void; // NUOVO
+  currentTrack: { id: string | null; title: string | null };
+  setCurrentTrack: (track: { id: string | null; title: string | null }) => void;
   playTrack: (id: string) => void;
   playPlaylist: (id: string) => void;
   stopMusic: () => void;

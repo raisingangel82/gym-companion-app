@@ -52,7 +52,14 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       alert("Il nome della scheda non può essere vuoto.");
       return;
     }
-    onSave({ name, exercises: exercises as Exercise[] });
+    // Costruisce l'oggetto completo WorkoutData come richiesto dalla prop onSave
+    const workoutDataToSave: WorkoutData = {
+      name: name,
+      exercises: exercises as Exercise[],
+      createdAt: workout?.createdAt || new Date(),
+      history: workout?.history || [],
+    };
+    onSave(workoutDataToSave);
   };
 
   return (
@@ -81,15 +88,14 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                     {exercises.map((ex, index) => (
                       <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
                         <div className="flex justify-between items-center gap-2">
-                          <Input value={ex.name || ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
+                          <Input value={ex.name ?? ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
                           <Button variant="ghost" onClick={() => setFindingImageForIndex(findingImageForIndex === index ? null : index)} size="icon" className="text-sky-500"><ImageIcon size={16} /></Button>
                           <Button onClick={() => removeExercise(index)} variant="ghost" size="icon" className="text-red-500"><Trash2 size={16} /></Button>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <Input type="number" value={ex.sets || ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
-                          <Input value={ex.reps || ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
-                          {/* CAMPO PESO CORRETTO */}
-                          <Input type="number" value={ex.weight || ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
+                          <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
+                          <Input value={ex.reps ?? ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
+                          <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
                         </div>
                         {findingImageForIndex === index && (
                           <ExerciseFinder 

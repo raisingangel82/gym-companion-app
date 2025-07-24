@@ -1,5 +1,4 @@
-// src/contexts/PageActionContext.tsx
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 
 type PageAction = (() => void) | null;
 

@@ -1,5 +1,4 @@
-// src/contexts/SettingsContext.tsx
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 interface SettingsContextType {
   restTime: number;
@@ -11,18 +10,16 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  // Carica i valori da localStorage o usa i default
   const [restTime, setRestTimeState] = useState<number>(() => {
     const saved = localStorage.getItem('settings_restTime');
-    return saved ? JSON.parse(saved) : 60; // Default: 60 secondi
+    return saved ? JSON.parse(saved) : 60;
   });
 
   const [autoRestTimer, setAutoRestTimerState] = useState<boolean>(() => {
     const saved = localStorage.getItem('settings_autoRestTimer');
-    return saved ? JSON.parse(saved) : true; // Default: attivo
+    return saved ? JSON.parse(saved) : true;
   });
 
-  // Salva in localStorage ogni volta che un valore cambia
   useEffect(() => {
     localStorage.setItem('settings_restTime', JSON.stringify(restTime));
   }, [restTime]);

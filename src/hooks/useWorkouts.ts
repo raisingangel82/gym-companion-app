@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { onWorkoutsSnapshot, addWorkout, updateWorkout, deleteWorkout } from '../services/firestore';
-import type { Workout, WorkoutData, WorkoutSession, SessionLogData } from '../types';
+import type { Workout, WorkoutSession, SessionLogData } from '../types';
 import { arrayUnion } from 'firebase/firestore';
 
 export const useWorkouts = () => {
@@ -55,7 +55,6 @@ export const useWorkouts = () => {
     if (!workoutToSave) return;
     const performedExercises = workoutToSave.exercises.filter(ex => ex.performance && ex.performance.length > 0);
     if (performedExercises.length === 0) {
-      // Potresti voler gestire questo caso con un modale di errore invece di un alert
       alert("Nessun set registrato. Allenati prima di salvare la sessione!");
       return;
     }
@@ -72,16 +71,12 @@ export const useWorkouts = () => {
         await updateWorkout(workoutToSave.id, {
             history: arrayUnion(historyEntry),
             exercises: cleanedExercises,
-        });
-        
-        // alert('Allenamento salvato con successo nella cronologia!'); // <-- RIMOSSO
+        } as any); // Correzione per l'errore di tipo FieldValue
     } catch (error) {
         console.error("Errore nel salvare la sessione:", error);
-        // Potresti voler gestire questo caso con un modale di errore invece di un alert
         alert("Si è verificato un errore nel salvataggio.");
     }
   };
-console.log('[useWorkouts] Stato attuale dei workout:', workouts);
 
   return {
     workouts,

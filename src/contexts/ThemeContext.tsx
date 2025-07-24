@@ -1,5 +1,4 @@
-// src/contexts/ThemeContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { themeColorPalettes } from '../data/colorPalette';
 import type { ColorPalette, ColorShade } from '../types';
 
@@ -46,7 +45,15 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const activeTheme = useMemo(() => activeColor.shades[activeShade], [activeColor, activeShade]);
 
-  const value = { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme };
+  // Aggiunto per compatibilità con versioni precedenti del tema
+  const finalActiveTheme = useMemo(() => ({
+    ...activeTheme,
+    bg: activeTheme.bgClass,
+    text: activeTheme.textClass,
+  }), [activeTheme]);
+
+
+  const value = { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme: finalActiveTheme };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
