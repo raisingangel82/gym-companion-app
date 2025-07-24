@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signOut,
@@ -6,14 +6,13 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  type User,
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { getUserProfile } from '../services/firestore'; // Importa la nuova funzione
-import type { AppUser } from '../types'; // Importa il nostro nuovo tipo utente
+import { getUserProfile } from '../services/firestore';
+import type { AppUser } from '../types';
 
 interface AuthContextType {
-  user: AppUser | null; // Ora userà il nostro tipo AppUser
+  user: AppUser | null;
   isAuthReady: boolean;
   logout: () => void;
   signUp: typeof createUserWithEmailAndPassword;
@@ -30,16 +29,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // L'utente si è loggato. Ora carichiamo il suo profilo da Firestore.
         const userProfile = await getUserProfile(firebaseUser.uid);
-        
-        // Uniamo i dati di autenticazione con i dati del profilo
         setUser({
           ...firebaseUser,
-          ...userProfile, // Aggiunge età, peso, obiettivi, ecc.
+          ...userProfile,
         });
       } else {
-        // L'utente si è disconnesso.
         setUser(null);
       }
       setIsAuthReady(true);

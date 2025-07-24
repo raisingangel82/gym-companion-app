@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Plus } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
@@ -98,19 +99,43 @@ export const ManagePage: React.FC = () => {
   const handleGenerateAIClick = async () => {
     if (user && user.plan === 'Pro') {
       setIsGenerating(true);
-      const generatedWorkouts: Omit<WorkoutData, 'createdAt' | 'history'>[] = [
-        { name: "Programma AI: Full-Body A", exercises: [ { name: "Squat con Bilanciere", sets: 4, reps: "6-8", weight: 0 }, { name: "Panca Piana con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Rematore con Bilanciere", sets: 4, reps: "8-10", weight: 0 }, { name: "Machine Shoulder Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Leg Extension", sets: 3, reps: "12-15", weight: 0 }, { name: "Lat Machine", sets: 3, reps: "10-12", weight: 0 }, { name: "Alzate Laterali con Manubri", sets: 4, reps: "12-15", weight: 0 } ] },
-        { name: "Programma AI: Full-Body B", exercises: [ { name: "Stacco Rumeno con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Panca Inclinata con Manubri", sets: 4, reps: "8-10", weight: 0 }, { name: "Trazioni alla Sbarra (o T-Bar Row)", sets: 4, reps: "6-8", weight: 0 }, { name: "Arnold Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Leg Press", sets: 3, reps: "10-12", weight: 0 }, { name: "Pulley Basso", sets: 3, reps: "10-12", weight: 0 }, { name: "Alzate Posteriori ai Cavi", sets: 4, reps: "12-15", weight: 0 } ] }
-      ];
       try {
+        const functions = getFunctions();
+        const generateAiWorkoutPlan = httpsCallable(functions, 'generateAiWorkoutPlan');
+        
+        // ## INIZIO MODIFICA ##
+        // Creiamo un oggetto "pulito" con solo i dati necessari per l'AI.
+        const userProfileData = {
+          gender: user.gender,
+          age: user.age,
+          height: user.height,
+          weight: user.weight,
+          goal: user.goal,
+          experience: user.experience,
+          frequency: user.frequency,
+          duration: user.duration,
+          equipment: user.equipment,
+          injuries: user.injuries,
+        };
+        
+        // Inviamo solo l'oggetto pulito, non l'intero 'user'.
+        const result = await generateAiWorkoutPlan(userProfileData);
+        // ## FINE MODIFICA ##
+
+        const generatedWorkouts = result.data as Omit<WorkoutData, 'createdAt' | 'history'>[];
+
+        if (!generatedWorkouts || generatedWorkouts.length === 0) {
+          throw new Error("L'AI non ha restituito schede valide.");
+        }
+
         await Promise.all(
           generatedWorkouts.map(workout => 
             addWorkout({ ...workout, createdAt: new Date(), history: [] })
           )
         );
-        alert(`Programma di allenamento A/B di ${generatedWorkouts.length} schede creato con successo!`);
+        alert(`Programma di allenamento di ${generatedWorkouts.length} schede creato con successo!`);
       } catch (error) {
-        console.error("Errore durante la creazione delle schede AI:", error);
+        console.error("Errore durante la generazione della scheda AI:", error);
         alert("Si è verificato un errore durante la generazione.");
       } finally {
         setIsGenerating(false);
@@ -126,7 +151,9 @@ export const ManagePage: React.FC = () => {
       <Card>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold flex items-center gap-2"><User /> Account</h2>
-            <Button onClick={() => { setProFeatureName('tutte le funzionalità'); setProModalOpen(true); }} className={`text-white ${activeTheme.bgClass}`}><Sparkles size={16} /> Passa a Pro</Button>
+            {user?.plan !== 'Pro' && (
+              <Button onClick={() => { setProFeatureName('tutte le funzionalità'); setProModalOpen(true); }} className={`text-white ${activeTheme.bgClass}`}><Sparkles size={16} /> Passa a Pro</Button>
+            )}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">Attualmente stai usando il piano {user?.plan || 'Free'}.</p>
       </Card>

@@ -1,4 +1,4 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 // --- Tipi per l'Allenamento ---
 
@@ -14,20 +14,24 @@ export interface SetPerformance {
 export interface Exercise {
   name: string;
   sets: number;
-  reps: string; // Es. "8-12", per questo è una stringa
-  weight: number; // Peso target
-  performance?: SetPerformance[]; // Performance registrate
+  reps: string;
+  weight: number;
+  performance?: SetPerformance[];
   imageUrl?: string;
 }
 
+/** Dati raccolti alla fine di una sessione di allenamento. */
+export interface SessionLogData {
+  sessionNotes?: string;
+  doms: number;
+  sleepQuality: number;
+  stressLevel: number;
+}
+
 /** Definisce una singola sessione di allenamento completata (per la cronologia). */
-export interface WorkoutSession {
+export interface WorkoutSession extends SessionLogData {
   date: string; // Formato ISO
   exercises: Exercise[];
-  sessionNotes?: string;
-  doms?: number; // Scala 1-5
-  sleepQuality?: number; // Scala 1-5
-  stressLevel?: number; // Scala 1-5
 }
 
 /** Definisce la struttura base di una scheda di allenamento. */
@@ -47,25 +51,24 @@ export interface Workout extends WorkoutData {
 
 /** Definisce il profilo utente con i dati raccolti durante l'onboarding. */
 export interface UserProfile {
+  plan?: 'Free' | 'Pro';
   gender?: 'male' | 'female' | 'other';
   age?: number;
-  height?: number; // in cm
-  weight?: number; // in kg
+  height?: number;
+  weight?: number;
   goal?: 'hypertrophy' | 'strength' | 'definition' | 'recomposition' | 'wellness';
   experience?: 'beginner' | 'intermediate' | 'advanced';
-  frequency?: number; // giorni/settimana
-  duration?: number; // minuti/sessione
+  frequency?: number;
+  duration?: number;
   equipment?: 'full_gym' | 'home_gym' | 'bodyweight';
   lifestyle?: 'sedentary' | 'active';
   injuries?: string;
   pathologies?: string;
   mobility_issues?: string;
-    plan?: 'Free' | 'Pro'; // <-- AGGIUNGI QUESTA RIGA
 }
 
-/** Unisce l'utente di Firebase con il nostro profilo custom. Questo sarà l'utente usato in tutta l'app. */
+/** Unisce l'utente di Firebase con il nostro profilo custom. */
 export type AppUser = FirebaseUser & Partial<UserProfile>;
-
 
 // --- Tipi per il Tema e l'UI ---
 

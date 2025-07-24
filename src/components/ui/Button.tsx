@@ -1,31 +1,40 @@
-// src/components/ui/Button.tsx
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
-// Interfaccia semplificata
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// Interfaccia completa per supportare varianti e dimensioni
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  // La variante non è più necessaria, lo stile viene passato tramite className
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
   children, 
   className = '', 
+  variant = 'default',
+  size = 'default',
   ...props 
 }) => {
-  // Classi di base per tutti i pulsanti
-  const baseClasses = 'px-4 py-2 rounded-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseClasses = 'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background';
 
-  // Classi per la variante secondaria (grigia), che è l'unica che rimane standard
-  const secondaryVariantClasses = 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 focus:ring-gray-500';
+  const variantClasses = {
+    default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+    destructive: 'bg-red-500 text-white hover:bg-red-500/90 dark:bg-red-600 dark:hover:bg-red-600/90',
+    outline: 'border border-input bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800',
+    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600',
+    ghost: 'hover:bg-gray-100 dark:hover:bg-gray-800',
+  };
 
-  // Se viene passata una classe di background (es. bg-blue-600), non applichiamo lo stile secondario
-  const finalClassName = className.includes('bg-') ? `${baseClasses} ${className}` : `${baseClasses} ${secondaryVariantClasses} ${className}`;
+  const sizeClasses = {
+    default: 'h-10 py-2 px-4',
+    sm: 'h-9 px-3 rounded-md',
+    lg: 'h-11 px-8 rounded-md',
+    icon: 'h-10 w-10',
+  };
+
+  const finalClassName = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
 
   return (
-    <button
-      className={finalClassName}
-      {...props}
-    >
+    <button className={finalClassName} {...props}>
       {children}
     </button>
   );

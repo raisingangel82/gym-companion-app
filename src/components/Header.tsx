@@ -1,7 +1,6 @@
-// src/components/Header.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, Star, UserCog } from 'lucide-react'; // Importa una nuova icona
+import { LogOut, Star, UserCog } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -9,7 +8,7 @@ import { AccountIcon } from './AccountIcon';
 
 interface HeaderProps {
   onLogout: () => void;
-  onOpenOnboarding: () => void; // <-- NUOVA PROP
+  onOpenOnboarding: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onLogout, onOpenOnboarding }) => {
@@ -28,7 +27,6 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, onOpenOnboarding }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuRef]);
 
-  // @ts-ignore - 'plan' è una proprietà custom che simuliamo
   const plan = user?.plan || 'Free';
 
   const handleProfileClick = () => {
@@ -51,21 +49,19 @@ export const Header: React.FC<HeaderProps> = ({ onLogout, onOpenOnboarding }) =>
             <AccountIcon className={activeTheme.bgClass} />
           </button>
           {isMenuOpen && (
-            <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg border dark:border-gray-700 z-50 py-1">
+            <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border dark:border-gray-700 z-50 py-1">
               <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">{user?.email || 'Utente Anonimo'}</p>
+                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">{user?.email || 'Utente Attuale'}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">Piano: {plan}</p>
               </div>
-              
-              {/* NUOVO PULSANTE PER APRIRE IL MODALE */}
               <button
                 onClick={handleProfileClick}
                 className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <UserCog size={16} /> Modifica Profilo
               </button>
-
-              {plan !== 'pro' && (
+              {/* Il link "Passa a Pro" viene mostrato solo se l'utente non è Pro */}
+              {plan !== 'Pro' && (
                 <Link to="/upgrade" className="block" onClick={() => setIsMenuOpen(false)}>
                     <span className="flex items-center gap-3 w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <Star size={16} className={activeTheme.textClass} /> Passa a Pro
