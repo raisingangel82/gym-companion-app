@@ -67,7 +67,7 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
 
   try {
     const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'us-central1' });
-    const model = vertex_ai.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -143,7 +143,7 @@ Analizza la situazione e fornisci la migliore sostituzione possibile per l'eserc
 
   try {
     const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'us-central1' });
-    const model = vertex_ai.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;

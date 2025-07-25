@@ -5,7 +5,7 @@ import { Button } from './ui/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Label } from './ui/Label';
-import type { Exercise } from '../types';
+import type { Exercise, UserProfile } from '../types';
 import { Sparkles } from 'lucide-react';
 
 interface SubstitutionModalProps {
@@ -33,33 +33,45 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
   const [selectedReason, setSelectedReason] = useState<SubstitutionReason | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState<AIResponse>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleClose = () => {
     onClose();
-    // Resetta lo stato interno del modale quando viene chiuso
     setTimeout(() => {
         setSelectedReason(null);
         setAiResponse(null);
-    }, 300); // Ritardo per permettere l'animazione di chiusura
+        setError(null);
+    }, 300);
   };
 
   const handleFindAlternatives = async () => {
-    if (!selectedReason || !exerciseToSubstitute || !user) return;
+    if (!selectedReason || !exerciseToSubstitute || !user) {
+        setError("Dati utente o esercizio mancanti.");
+        return;
+    }
     
     setIsLoading(true);
     setAiResponse(null);
+    setError(null);
     try {
       const functions = getFunctions();
       const getExerciseSubstitution = httpsCallable(functions, 'getExerciseSubstitution');
       
-      const userProfile = { goal: user.goal, experience: user.experience, injuries: user.injuries };
+      const userProfile: Partial<UserProfile> = { 
+        goal: user.goal, 
+        experience: user.experience, 
+        injuries: user.injuries 
+      };
+
+      console.log("Dati inviati alla funzione:", { userProfile, exerciseToSubstitute, reason: selectedReason });
+
       const result = await getExerciseSubstitution({ userProfile, exerciseToSubstitute, reason: selectedReason });
       
       setAiResponse(result.data as AIResponse);
 
-    } catch (error) {
-      console.error("Errore chiamando la funzione AI:", error);
-      alert("Si è verificato un errore nel contattare l'AI.");
+    } catch (err: any) {
+      console.error("Errore chiamando la funzione AI:", err);
+      setError(`Codice: ${err.code} - Messaggio: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -68,13 +80,26 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={handleClose}>
-        <Transition.Child as={Fragment} /* ... */ >
+        <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
         </Transition.Child>
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
-            <Transition.Child as={Fragment} /* ... */ >
+            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
+                <div className="p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                    <h4 className="font-bold text-xs">Dati Utente (Debug):</h4>
+                    <pre className="text-xs whitespace-pre-wrap break-all">
+                        {JSON.stringify({
+                            uid: user?.uid,
+                            email: user?.email,
+                            plan: user?.plan,
+                            goal: user?.goal,
+                            experience: user?.experience,
+                        }, null, 2)}
+                    </pre>
+                </div>
+
                 <div className="p-6">
                   <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">
                     Sostituisci Esercizio
@@ -83,7 +108,14 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
                     Sostituisci <span className="font-bold text-gray-800 dark:text-gray-200">{exerciseToSubstitute?.name}</span> con un'alternativa AI.
                   </p>
 
-                  {!aiResponse && (
+                  {error && (
+                    <div className="my-4 p-3 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                        <p className="font-bold text-red-800 dark:text-red-300">Si è verificato un errore:</p>
+                        <p className="text-sm text-red-700 dark:text-red-400 break-words">{error}</p>
+                    </div>
+                  )}
+
+                  {!aiResponse && !isLoading && (
                     <div className="mt-4">
                       <Label className="text-gray-800 dark:text-gray-200">Perché vuoi sostituirlo?</Label>
                       <div className="mt-2 flex flex-col gap-2">
@@ -104,7 +136,7 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
                     </div>
                   )}
 
-                  {isLoading && <div className="text-center p-8">Caricamento alternative...</div>}
+                  {isLoading && <div className="text-center p-8 text-gray-600 dark:text-gray-300">Caricamento alternative...</div>}
 
                   {aiResponse && (
                     <div className="mt-4 space-y-4">
