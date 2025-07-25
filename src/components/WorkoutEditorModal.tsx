@@ -73,11 +73,38 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     setExercises(newExercises);
   };
 
+  // --- FUNZIONE DI SALVATAGGIO AGGIORNATA E PIÙ ROBUSTA ---
   const handleSave = () => {
-    if (!name.trim()) return alert("Il nome della scheda non può essere vuoto.");
+    if (!name.trim()) {
+      alert("Il nome della scheda non può essere vuoto.");
+      return;
+    }
+
+    // 1. Filtra gli esercizi per rimuovere quelli senza nome
+    const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
+
+    // 2. Mappa gli esercizi validi per assicurarsi che siano completi
+    const finalizedExercises = validExercises.map(ex => ({
+      name: ex.name!,
+      type: ex.type || 'strength',
+      sets: ex.sets,
+      reps: ex.reps,
+      weight: ex.weight,
+      duration: ex.duration,
+      speed: ex.speed,
+      level: ex.level,
+      imageUrl: ex.imageUrl,
+      performance: ex.performance || [],
+    })) as Exercise[];
+
+    if (finalizedExercises.length === 0) {
+      alert("La scheda deve contenere almeno un esercizio valido.");
+      return;
+    }
+
     const workoutDataToSave: WorkoutData = {
       name: name,
-      exercises: exercises.map(ex => ({...ex, type: ex.type || 'strength'})) as Exercise[],
+      exercises: finalizedExercises,
       createdAt: workout?.createdAt || new Date(),
       history: workout?.history || [],
     };
@@ -135,7 +162,6 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                             <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
                           </div>
                         )}
-                        {/* Funzione di ricerca immagini ripristinata */}
                         {findingImageForIndex === index && (
                           <ExerciseFinder 
                             exerciseName={ex.name ?? ''}
