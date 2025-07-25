@@ -1,3 +1,4 @@
+// Test per l'aggiornamento PWA
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
