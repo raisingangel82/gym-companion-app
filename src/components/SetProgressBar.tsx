@@ -5,7 +5,8 @@ interface SetProgressBarProps {
 }
 
 export const SetProgressBar: React.FC<SetProgressBarProps> = ({ exercise }) => {
-    const { sets, reps: targetReps, weight: targetWeight, performance } = exercise;
+    // Aggiunto un fallback a 0 se sets non è definito (per gli esercizi cardio)
+    const { sets = 0, reps: targetReps, weight: targetWeight, performance } = exercise;
     
     const getSetColor = (setIndex: number): string => {
         const perf = performance?.[setIndex];
@@ -16,13 +17,14 @@ export const SetProgressBar: React.FC<SetProgressBarProps> = ({ exercise }) => {
         const perfWeight = perf.weight || 0;
         const targetWeightNum = targetWeight || 0;
         
-        // Gestisce reps come "8-12" prendendo il primo numero
+        // Aggiunto un fallback a 0 se perf.reps è undefined
+        const perfReps = perf.reps || 0;
         const targetRepsNum = parseInt(String(targetReps).split(/[-|–]/)[0], 10) || 0;
 
-        if (perf.reps > targetRepsNum || perfWeight > targetWeightNum) {
+        if (perfReps > targetRepsNum || perfWeight > targetWeightNum) {
             return 'bg-sky-500'; // Blu - Migliore
         }
-        if (perf.reps < targetRepsNum || perfWeight < targetWeightNum) {
+        if (perfReps < targetRepsNum || perfWeight < targetWeightNum) {
             return 'bg-red-500'; // Rosso - Peggiore
         }
         return 'bg-green-500'; // Verde - In target
