@@ -6,19 +6,35 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // ... le tue altre opzioni PWA
+      registerType: 'autoUpdate',
+      // Sezione manifest aggiunta/aggiornata
+      manifest: {
+        name: 'Gym Companion',
+        short_name: 'GymComp',
+        description: 'Il tuo personal trainer intelligente, basato su AI.',
+        theme_color: '#44403c', // Esempio (Grigio Pietra), puoi scegliere il colore che preferisci
+        background_color: '#ffffff',
+        display: 'standalone',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: 'icon-192x192.png', // Il file che hai messo in /public
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'icon-512x512.png', // Il file che hai messo in /public
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      },
       workbox: {
         runtimeCaching: [
           {
-            // Applica questa regola a tutte le richieste che iniziano con l'URL dell'API di wger
             urlPattern: /^https:\/\/wger\.de\/api\/v2\/.*/,
-            
-            // ===============================================================
-            // SOLUZIONE: Usa la strategia 'NetworkFirst'.
-            // Questo forza la richiesta ad andare in rete, risolvendo il bug.
-            // ===============================================================
             handler: 'NetworkFirst',
-            
             options: {
               cacheName: 'wger-api-cache',
               expiration: {
@@ -29,8 +45,7 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
-          },
-          // Qui potrebbero esserci altre regole di caching per il resto della tua app
+          }
         ]
       }
     })
