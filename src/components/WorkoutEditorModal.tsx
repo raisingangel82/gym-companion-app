@@ -73,29 +73,38 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     setExercises(newExercises);
   };
 
-  // --- FUNZIONE DI SALVATAGGIO AGGIORNATA E PIÙ ROBUSTA ---
   const handleSave = () => {
     if (!name.trim()) {
       alert("Il nome della scheda non può essere vuoto.");
       return;
     }
 
-    // 1. Filtra gli esercizi per rimuovere quelli senza nome
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
 
-    // 2. Mappa gli esercizi validi per assicurarsi che siano completi
-    const finalizedExercises = validExercises.map(ex => ({
-      name: ex.name!,
-      type: ex.type || 'strength',
-      sets: ex.sets,
-      reps: ex.reps,
-      weight: ex.weight,
-      duration: ex.duration,
-      speed: ex.speed,
-      level: ex.level,
-      imageUrl: ex.imageUrl,
-      performance: ex.performance || [],
-    })) as Exercise[];
+    const finalizedExercises = validExercises.map(ex => {
+      const baseExercise = {
+        name: ex.name!,
+        type: ex.type || 'strength',
+        imageUrl: ex.imageUrl,
+        performance: ex.performance || [],
+      };
+
+      if (baseExercise.type === 'cardio') {
+        return {
+          ...baseExercise,
+          duration: ex.duration || 0,
+          speed: ex.speed || 0,
+          level: ex.level || 0,
+        };
+      } else { // 'strength'
+        return {
+          ...baseExercise,
+          sets: ex.sets || 0,
+          reps: ex.reps || '0',
+          weight: ex.weight || 0,
+        };
+      }
+    }) as Exercise[];
 
     if (finalizedExercises.length === 0) {
       alert("La scheda deve contenere almeno un esercizio valido.");
