@@ -64,16 +64,13 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
         injuries: user.injuries 
       };
 
-      // --- MODIFICA CHIAVE ---
-      // Creiamo un oggetto semplice con solo il nome dell'esercizio da inviare
       const simpleExercise = { name: exerciseToSubstitute.name };
 
       const result = await getExerciseSubstitution({ 
           userProfile, 
-          exerciseToSubstitute: simpleExercise, // Inviamo l'oggetto semplice
+          exerciseToSubstitute: simpleExercise,
           reason: selectedReason 
       });
-      // --- FINE MODIFICA ---
       
       setAiResponse(result.data as AIResponse);
 
@@ -99,7 +96,8 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
                   <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">
                     Sostituisci Esercizio
                   </Dialog.Title>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {/* MODIFICA: Aumentato contrasto testo secondario */}
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
                     Sostituisci <span className="font-bold text-gray-800 dark:text-gray-200">{exerciseToSubstitute?.name}</span> con un'alternativa AI.
                   </p>
 
@@ -140,22 +138,24 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
                       </div>
                       <div>
                         <h4 className="font-bold text-gray-900 dark:text-gray-100">Soluzione Primaria</h4>
-                        <p className="font-semibold text-primary">{aiResponse.primarySolution.exerciseName}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{aiResponse.primarySolution.why}</p>
-                        <p className="mt-1 text-xs font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded">ISTRUZIONI: {aiResponse.primarySolution.instructions}</p>
+                        {/* MODIFICA: Nome esercizio reso bianco in tema scuro */}
+                        <p className="font-semibold text-primary dark:text-white">{aiResponse.primarySolution.exerciseName}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{aiResponse.primarySolution.why}</p>
+                        <p className="mt-1 text-xs font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded dark:text-gray-200">ISTRUZIONI: {aiResponse.primarySolution.instructions}</p>
                       </div>
                        <div>
                         <h4 className="font-bold text-gray-900 dark:text-gray-100">Soluzione Secondaria</h4>
-                        <p className="font-semibold text-primary">{aiResponse.secondarySolution.exerciseName}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{aiResponse.secondarySolution.why}</p>
-                        <p className="mt-1 text-xs font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded">ISTRUZIONI: {aiResponse.secondarySolution.instructions}</p>
+                        {/* MODIFICA: Nome esercizio reso bianco in tema scuro */}
+                        <p className="font-semibold text-primary dark:text-white">{aiResponse.secondarySolution.exerciseName}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{aiResponse.secondarySolution.why}</p>
+                        <p className="mt-1 text-xs font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded dark:text-gray-200">ISTRUZIONI: {aiResponse.secondarySolution.instructions}</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end gap-2">
-                  <Button variant="ghost" onClick={handleClose}>Chiudi</Button>
+                  <Button variant="ghost" onClick={handleClose} className="dark:text-gray-200">Chiudi</Button>
                   {!aiResponse && (
                     <Button onClick={handleFindAlternatives} className={`text-white ${activeTheme.bgClass} hover:opacity-90`} disabled={!selectedReason || isLoading}>
                       <Sparkles size={16} className="mr-2"/>

@@ -11,7 +11,7 @@ import type { Exercise, SetPerformance } from '../types';
 interface LogModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (performance: SetPerformance) => void;
+  onSave: (performance: SetPerformance) => Promise<void>;
   exercise: Exercise;
   setIndex: number;
 }
@@ -26,6 +26,7 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
   const [level, setLevel] = useState('');
   const [rpe, setRpe] = useState(7);
   const [notes, setNotes] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,31 +37,54 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
         setLevel(String(exercise.level ?? ''));
         setRpe(7);
         setNotes('');
+        setIsSaving(false);
     }
   }, [isOpen, exercise]);
 
-  const handleSave = () => {
-    let performanceData: SetPerformance = { rpe, notes: notes.trim() ? notes.trim() : undefined };
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    // --- MODIFICA CHIAVE ALLA LOGICA ---
+    // 1. Creiamo un oggetto base solo con i campi sempre presenti.
+    const basePerformance: Partial<SetPerformance> = { rpe };
+
+    // 2. Aggiungiamo il campo 'notes' solo se non è vuoto.
+    if (notes.trim()) {
+      basePerformance.notes = notes.trim();
+    }
+    
+    // 3. Completiamo l'oggetto in base al tipo di esercizio.
+    let performanceData: SetPerformance;
     if (exercise.type === 'cardio') {
       performanceData = {
-        ...performanceData,
+        ...basePerformance,
         duration: parseFloat(duration) || 0,
         speed: parseFloat(speed) || 0,
         level: parseFloat(level) || 0,
-      };
+      } as SetPerformance;
     } else {
       performanceData = {
-        ...performanceData,
+        ...basePerformance,
         weight: parseFloat(weight) || 0,
         reps: parseInt(reps, 10) || 0,
-      };
+      } as SetPerformance;
     }
-    onSave(performanceData);
+    // --- FINE MODIFICA ---
+
+    try {
+        await onSave(performanceData);
+        onClose();
+    } catch (error) {
+        console.error("Errore durante il salvataggio dalla modale:", error);
+        alert("Si è verificato un errore durante il salvataggio. Controlla la console.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-50" onClose={() => !isSaving && onClose()}>
         <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
         </Transition.Child>
@@ -76,7 +100,6 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
                 <main className="p-6 space-y-6">
                   {exercise.type === 'cardio' ? (
                     <div className="space-y-4">
-                      <p className="text-sm text-center text-gray-500 dark:text-gray-400">Inserisci i dati della tua sessione cardio.</p>
                       <div className="grid grid-cols-3 gap-4">
                         <div><Label htmlFor="duration" className="dark:text-gray-300">Durata (min)</Label><Input id="duration" type="number" value={duration} onChange={e => setDuration(e.target.value)} /></div>
                         <div><Label htmlFor="speed" className="dark:text-gray-300">Velocità</Label><Input id="speed" type="number" value={speed} onChange={e => setSpeed(e.target.value)} /></div>
@@ -99,10 +122,10 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
                   </div>
                 </main>
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-col gap-2">
-                  <Button onClick={handleSave} className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`}>
-                    <Save size={16} className="mr-2" /> Salva Performance
+                  <Button onClick={handleSave} className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`} disabled={isSaving}>
+                    <Save size={16} className="mr-2" /> {isSaving ? 'Salvataggio...' : 'Salva Performance'}
                   </Button>
-                  <Button variant="ghost" onClick={onClose}>Annulla</Button>
+                  <Button variant="ghost" onClick={() => !isSaving && onClose()} className="dark:text-gray-200">Annulla</Button>
                 </footer>
               </Dialog.Panel>
             </Transition.Child>

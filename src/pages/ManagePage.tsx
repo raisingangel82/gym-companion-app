@@ -100,7 +100,6 @@ export const ManagePage: React.FC = () => {
     if (user && user.plan === 'Pro') {
       setIsGenerating(true);
       try {
-        // CORREZIONE: Specifica la regione corretta per le funzioni
         const functions = getFunctions(getApp(), 'europe-west1');
         const generateAiWorkoutPlan = httpsCallable(functions, 'generateAiWorkoutPlan');
         
@@ -169,7 +168,20 @@ export const ManagePage: React.FC = () => {
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Tonalità</label>
             <div className="flex rounded-lg p-1 bg-gray-200 dark:bg-gray-700">
-              {(['400', '700', '800'] as const).map(shade => (<button key={shade} onClick={() => setActiveShade(shade)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${activeShade === shade ? `bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow` : `text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600/50`}`}>{shade}</button>))}
+              {/* MODIFICA 1: Stile del selettore tonalità corretto */}
+              {(['400', '700', '800'] as const).map(shade => (
+                <button 
+                  key={shade} 
+                  onClick={() => setActiveShade(shade)} 
+                  className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${
+                    activeShade === shade 
+                    ? `${activeTheme.bgClass} text-white shadow` 
+                    : `text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600/50`
+                  }`}
+                >
+                  {shade}
+                </button>
+              ))}
             </div>
           </div>
           <div className="pt-4 first:pt-0 flex flex-col gap-2">
@@ -209,7 +221,7 @@ export const ManagePage: React.FC = () => {
             <div className="flex items-center justify-between mt-4 gap-2">
               <Button onClick={() => setActiveWorkout(workout.id)} variant={activeWorkout?.id === workout.id ? "default" : "secondary"} className={`flex-1 ${activeWorkout?.id === workout.id ? activeTheme.bgClass + ' text-white' : ''}`}><CheckCircle size={16}/> {activeWorkout?.id === workout.id ? 'Attiva' : 'Seleziona'}</Button>
               <div className="flex">
-                <button onClick={() => { setProFeatureName(`Ottimizzazione "${workout.name}" con AI`); setProModalOpen(true); }} className="p-2 text-gray-500 hover:text-purple-500" title="Ottimizza con AI"><Sparkles size={18} /></button>
+                {/* MODIFICA 2: Pulsante "Ottimizza con AI" rimosso */}
                 <button onClick={() => handleOpenModal(workout)} className="p-2 text-gray-500 hover:text-blue-500" title="Modifica"><Edit size={18} /></button>
                 <button onClick={() => deleteWorkout(workout.id)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>
               </div>

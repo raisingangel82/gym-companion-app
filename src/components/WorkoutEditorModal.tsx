@@ -27,6 +27,17 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       setFindingImageForIndex(null);
     }
   }, [isOpen, workout]);
+  
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen]);
 
   const handleExerciseChange = (index: number, field: keyof Exercise, value: any) => {
     const newExercises = [...exercises];
@@ -76,24 +87,14 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       const baseExercise = {
         name: ex.name!,
         type: ex.type || 'strength',
-        imageUrl: ex.imageUrl || null, // <-- MODIFICA APPLICATA QUI
+        imageUrl: ex.imageUrl || null,
         performance: ex.performance || [],
       };
 
       if (baseExercise.type === 'cardio') {
-        return {
-          ...baseExercise,
-          duration: ex.duration || 0,
-          speed: ex.speed || 0,
-          level: ex.level || 0,
-        };
-      } else { // 'strength'
-        return {
-          ...baseExercise,
-          sets: ex.sets || 0,
-          reps: ex.reps || '0',
-          weight: ex.weight || 0,
-        };
+        return { ...baseExercise, duration: ex.duration || 0, speed: ex.speed || 0, level: ex.level || 0 };
+      } else {
+        return { ...baseExercise, sets: ex.sets || 0, reps: ex.reps || '0', weight: ex.weight || 0 };
       }
     }) as Exercise[];
 
@@ -124,11 +125,12 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                 </header>
                 
                 <main className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                   {/* Nome Scheda Input */}
                   <div>
-                    <label htmlFor="workout-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Scheda</label>
-                    <Input id="workout-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Giorno A - Spinta" />
+                    <label htmlFor="workout-name-editor" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Scheda</label>
+                    <Input id="workout-name-editor" value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Giorno A - Spinta" />
                   </div>
-                  
+
                   <div className="space-y-4">
                     {exercises.map((ex, index) => (
                       <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
@@ -147,9 +149,9 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                         </div>
                         {ex.type === 'cardio' ? (
                           <div className="grid grid-cols-3 gap-2">
-                            <Input type="number" value={ex.duration ?? ''} onChange={(e) => handleExerciseChange(index, 'duration', Number(e.target.value))} placeholder="Durata (min)" />
-                            <Input type="number" value={ex.speed ?? ''} onChange={(e) => handleExerciseChange(index, 'speed', Number(e.target.value))} placeholder="Velocità" />
-                            <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
+                             <Input type="number" value={ex.duration ?? ''} onChange={(e) => handleExerciseChange(index, 'duration', Number(e.target.value))} placeholder="Durata (min)" />
+                             <Input type="number" value={ex.speed ?? ''} onChange={(e) => handleExerciseChange(index, 'speed', Number(e.target.value))} placeholder="Velocità" />
+                             <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
                           </div>
                         ) : (
                           <div className="grid grid-cols-3 gap-2">
@@ -163,17 +165,23 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                             exerciseName={ex.name ?? ''}
                             onImageSelected={(imageUrl) => handleImageSelected(index, imageUrl)}
                             onClose={() => setFindingImageForIndex(null)}
+                            activeTheme={activeTheme}
                           />
                         )}
                       </div>
                     ))}
                   </div>
-                  <Button onClick={addExercise} variant="outline" className="w-full">
+                   {/* MODIFICA: Aggiunte classi per rendere il bottone visibile in tema scuro */}
+                   <Button 
+                     onClick={addExercise} 
+                     variant="outline" 
+                     className="w-full dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+                   >
                     <PlusCircle size={16} className="mr-2" /> Aggiungi Esercizio
                   </Button>
                 </main>
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end gap-2">
-                  <Button variant="ghost" onClick={onClose}>Annulla</Button>
+                  <Button variant="ghost" onClick={onClose} className="dark:text-gray-200">Annulla</Button>
                   <Button onClick={handleSave} className={`text-white ${activeTheme.bgClass} hover:opacity-90`}>Salva Scheda</Button>
                 </footer>
               </Dialog.Panel>

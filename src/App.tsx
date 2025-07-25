@@ -1,6 +1,8 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import YouTube from 'react-youtube';
+
+// Hooks, Tipi e Servizi
 import { useMusic, MusicProvider } from './contexts/MusicContext';
 import { usePageAction, PageActionProvider } from './contexts/PageActionContext';
 import { useAuth } from './contexts/AuthContext';
@@ -8,11 +10,13 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
+
+// Componenti e Pagine
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { UpdatePrompt } from './components/UpdatePrompt'; // <-- NUOVO IMPORT
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { WorkoutPage } from './pages/WorkoutPage';
 import { ManagePage } from './pages/ManagePage';
 import { StatsPage } from './pages/StatsPage';
@@ -22,6 +26,7 @@ import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
+// Layout per l'applicazione principale (quando l'utente è loggato)
 function MainAppLayout() {
   const { isPlaying, setIsPlaying, videoId, playlistId, playerRef, setCurrentTrack, decorativePlayerRef } = useMusic();
   const { registeredAction } = usePageAction();
@@ -73,7 +78,7 @@ function MainAppLayout() {
   };
 
   const handlePlayerStateChange = (event: any) => {
-    if (event.data === 1 && playerRef.current) {
+    if (event.data === 1 && playerRef.current) { // Stato 1 = In Riproduzione
       const trackData = playerRef.current.getVideoData();
       setCurrentTrack({ id: trackData.video_id, title: trackData.title });
     }
@@ -104,7 +109,6 @@ function MainAppLayout() {
         </div>
       )}
       
-      {/* RIGA "onClose" RIMOSSA DA QUI */}
       <OnboardingModal
         isOpen={isOnboardingModalOpen}
         onComplete={handleCompleteOnboarding}
