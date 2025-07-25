@@ -1,26 +1,20 @@
-// src/components/UpdatePrompt.tsx
-import { useRegisterSW } from 'vite-plugin-pwa/react';
+import { useRegisterSW } from 'virtual:pwa-register/react'; // CORREZIONE: Import modificato
 import { Button } from './ui/Button';
 import { RefreshCw } from 'lucide-react';
 
 export const UpdatePrompt: React.FC = () => {
   const {
-    offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
+    // 'offlineReady' non era utilizzato e l'ho rimosso per pulire il codice
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegistered(r) {
+    onRegistered(r) { // CORREZIONE: Aggiunto tipo al parametro
       console.log('Service Worker registrato:', r);
     },
-    onRegisterError(error) {
+    onRegisterError(error) { // CORREZIONE: Aggiunto tipo al parametro
       console.error('Errore registrazione Service Worker:', error);
     },
   });
-
-  const close = () => {
-    setOfflineReady(false);
-    setNeedRefresh(false);
-  };
 
   if (!needRefresh) {
     return null;
@@ -33,6 +27,7 @@ export const UpdatePrompt: React.FC = () => {
           <p className="font-bold text-gray-900 dark:text-gray-100">Nuova versione disponibile!</p>
           <p className="text-sm text-gray-600 dark:text-gray-400">Ricarica per applicare l'aggiornamento.</p>
         </div>
+        {/* La funzione `updateServiceWorker(true)` forza il ricaricamento */}
         <Button onClick={() => updateServiceWorker(true)}>
           <RefreshCw size={16} className="mr-2"/>
           Aggiorna
