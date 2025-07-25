@@ -1,24 +1,46 @@
 import type { User as FirebaseUser } from 'firebase/auth';
-import type { ElementType } from 'react'; // <-- AGGIUNTO QUESTO IMPORT
+import type { ElementType } from 'react';
 
 // --- Tipi per l'Allenamento ---
 
-/** Definisce una singola performance registrata per un set. */
+/**
+ * Definisce una singola performance registrata.
+ * Ora è generica e può contenere dati sia di forza che di cardio.
+ */
 export interface SetPerformance {
-  reps: number;
-  weight: number;
+  // Dati di Forza
+  reps?: number;
+  weight?: number;
+  
+  // Dati Cardio
+  duration?: number; // in minuti
+  speed?: number;    // es. in km/h
+  level?: number;    // es. pendenza o resistenza
+
+  // Dati Comuni
   notes?: string;
   rpe?: number;
 }
 
-/** Definisce un esercizio all'interno di una scheda. */
+/**
+ * Definisce un esercizio, che ora può essere di tipo 'strength' o 'cardio'.
+ */
 export interface Exercise {
   name: string;
-  sets: number;
-  reps: string;
-  weight: number;
-  performance?: SetPerformance[];
+  type: 'strength' | 'cardio'; // <-- Campo per distinguere il tipo di esercizio
   imageUrl?: string;
+
+  // Proprietà per la forza
+  sets?: number;
+  reps?: string;
+  weight?: number;
+
+  // Proprietà per il cardio (i target)
+  duration?: number; // in minuti
+  speed?: number;
+  level?: number;
+
+  performance?: SetPerformance[];
 }
 
 /** Dati raccolti alla fine di una sessione di allenamento. */

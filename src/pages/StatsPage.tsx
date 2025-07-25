@@ -43,15 +43,25 @@ export const StatsPage: React.FC = () => {
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
       workout.history.forEach(session => {
-        if (!session || !session.date || !Array.isArray(session.exercises)) return;
+        if (!session?.exercises) return;
         session.exercises.forEach(exercise => {
           if (!exercise.performance || exercise.performance.length === 0) return;
+          
           const totalVolume = exercise.performance.reduce((sum, set) => {
-            const reps = Number(set.reps);
-            const weight = Number(set.weight);
-            if (isNaN(reps) || isNaN(weight)) return sum;
-            return sum + (reps * weight);
+            let volume = 0;
+            if (exercise.type === 'cardio') {
+              const duration = set.duration || 0;
+              const speed = set.speed || 0;
+              const level = set.level || 1;
+              volume = duration * speed * level;
+            } else {
+              const reps = set.reps || 0;
+              const weight = set.weight || 0;
+              volume = reps * weight;
+            }
+            return sum + volume;
           }, 0);
+
           if (totalVolume > 0) {
             if (!stats[exercise.name]) stats[exercise.name] = [];
             stats[exercise.name].push({ date: new Date(session.date).toISOString(), volume: totalVolume });
@@ -88,7 +98,6 @@ export const StatsPage: React.FC = () => {
     setIsReportModalOpen(true);
 
     try {
-        // CORREZIONE: Specifica la regione corretta per le funzioni
         const functions = getFunctions(getApp(), 'europe-west1');
         const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport');
         
@@ -166,10 +175,10 @@ export const StatsPage: React.FC = () => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                 <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} />
-                <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} label={{ value: 'Volume (kg)', angle: -90, position: 'insideLeft', fill: axisColor }} />
+                <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} label={{ value: 'Volume', angle: -90, position: 'insideLeft', fill: axisColor }} />
                 <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB', borderRadius: '0.5rem' }} labelFormatter={formatDate} />
                 <Legend wrapperStyle={{ color: axisColor }} />
-                <Area type="monotone" dataKey="volume" name="Volume (kg)" stroke={activeTheme.hex} strokeWidth={2} fill="url(#themeGradient)" dot={{ r: 4, fill: activeTheme.hex }} activeDot={{ r: 8, stroke: activeTheme.hex, fill: theme === 'dark' ? '#1F2937' : '#FFFFFF' }} />
+                <Area type="monotone" dataKey="volume" name="Volume" stroke={activeTheme.hex} strokeWidth={2} fill="url(#themeGradient)" dot={{ r: 4, fill: activeTheme.hex }} activeDot={{ r: 8, stroke: activeTheme.hex, fill: theme === 'dark' ? '#1F2937' : '#FFFFFF' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>

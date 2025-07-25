@@ -1,13 +1,12 @@
-import React, { useState, Fragment, useEffect } from 'react';
+import { useState, Fragment, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { useTheme } from '../contexts/ThemeContext';
-import type { Exercise, SetPerformance } from '../types';
-
-// Importa i componenti UI dal percorso corretto
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
 import { Label } from './ui/Label';
 import { Textarea } from './ui/Textarea';
+import { Input } from './ui/Input';
+import { Save } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
+import type { Exercise, SetPerformance } from '../types';
 
 interface LogModalProps {
   isOpen: boolean;
@@ -19,99 +18,91 @@ interface LogModalProps {
 
 export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onSave, exercise, setIndex }) => {
   const { activeTheme } = useTheme();
-
-  const lastPerformance = exercise.performance?.[setIndex - 1] || exercise.performance?.[exercise.performance.length - 1];
   
-  // Usa il valore numerico dal tipo Exercise se esiste
-  const targetWeight = lastPerformance?.weight ?? (typeof exercise.weight === 'number' ? exercise.weight : 0);
-  const targetReps = lastPerformance?.reps ?? (parseInt(String(exercise.reps).split(/[-|–]/)[0], 10) || 8);
-
-  const [weight, setWeight] = useState(targetWeight);
-  const [reps, setReps] = useState(targetReps);
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
+  const [duration, setDuration] = useState('');
+  const [speed, setSpeed] = useState('');
+  const [level, setLevel] = useState('');
   const [rpe, setRpe] = useState(7);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setWeight(lastPerformance?.weight ?? targetWeight);
-      setReps(lastPerformance?.reps ?? targetReps);
-      setRpe(lastPerformance?.rpe ?? 7);
-      setNotes(lastPerformance?.notes ?? '');
+        setWeight(String(exercise.weight ?? ''));
+        setReps(String(exercise.reps ?? ''));
+        setDuration(String(exercise.duration ?? ''));
+        setSpeed(String(exercise.speed ?? ''));
+        setLevel(String(exercise.level ?? ''));
+        setRpe(7);
+        setNotes('');
     }
-  }, [isOpen, lastPerformance, targetReps, targetWeight]);
+  }, [isOpen, exercise]);
 
   const handleSave = () => {
-    onSave({ 
-      weight: Number(weight), 
-      reps: Number(reps), 
-      rpe: Number(rpe), 
-      notes: notes.trim() 
-    });
-    onClose();
+    let performanceData: SetPerformance = { rpe, notes: notes.trim() ? notes.trim() : undefined };
+    if (exercise.type === 'cardio') {
+      performanceData = {
+        ...performanceData,
+        duration: parseFloat(duration) || 0,
+        speed: parseFloat(speed) || 0,
+        level: parseFloat(level) || 0,
+      };
+    } else {
+      performanceData = {
+        ...performanceData,
+        weight: parseFloat(weight) || 0,
+        reps: parseInt(reps, 10) || 0,
+      };
+    }
+    onSave(performanceData);
   };
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={() => {}}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
         </Transition.Child>
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4 text-center">
-            <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+            <Transition.Child as={Fragment}>
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
                 <header className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4">
                   <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">
-                    Set {setIndex + 1} - {exercise.name}
+                    {exercise.type === 'cardio' ? `Registra ${exercise.name}` : `Set ${setIndex + 1} - ${exercise.name}`}
                   </Dialog.Title>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Obiettivo: {exercise.reps} reps @ {exercise.weight}kg</p>
                 </header>
-                
                 <main className="p-6 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="reps-input">Ripetizioni</Label>
-                      <Input id="reps-input" type="number" value={reps} onChange={(e) => setReps(Number(e.target.value))} />
+                  {exercise.type === 'cardio' ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-center text-gray-500 dark:text-gray-400">Inserisci i dati della tua sessione cardio.</p>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div><Label htmlFor="duration" className="dark:text-gray-300">Durata (min)</Label><Input id="duration" type="number" value={duration} onChange={e => setDuration(e.target.value)} /></div>
+                        <div><Label htmlFor="speed" className="dark:text-gray-300">Velocità</Label><Input id="speed" type="number" value={speed} onChange={e => setSpeed(e.target.value)} /></div>
+                        <div><Label htmlFor="level" className="dark:text-gray-300">Livello</Label><Input id="level" type="number" value={level} onChange={e => setLevel(e.target.value)} /></div>
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="weight-input">Peso (kg)</Label>
-                      <Input id="weight-input" type="number" step="0.5" value={weight} onChange={(e) => setWeight(Number(e.target.value))} />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><Label htmlFor="weight" className="dark:text-gray-300">Peso (kg)</Label><Input id="weight" type="number" value={weight} onChange={e => setWeight(e.target.value)} /></div>
+                      <div><Label htmlFor="reps" className="dark:text-gray-300">Reps</Label><Input id="reps" type="number" value={reps} onChange={e => setReps(e.target.value)} /></div>
                     </div>
-                  </div>
-
+                  )}
                   <div>
-                    <Label htmlFor="rpe">Sforzo Percepito (RPE): <span className="font-bold">{rpe}</span></Label>
-                    <input
-                        id="rpe"
-                        type="range"
-                        min="1"
-                        max="10"
-                        step="0.5"
-                        value={rpe}
-                        onChange={(e) => setRpe(Number(e.target.value))}
-                        className="w-full h-2 mt-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-                    />
+                    <Label htmlFor="rpe" className="dark:text-gray-300">Sforzo Percepito (RPE): <span className="font-bold">{rpe}</span></Label>
+                    <input id="rpe" type="range" min="1" max="10" step="0.5" value={rpe} onChange={(e) => setRpe(parseFloat(e.target.value))} className="w-full h-2 mt-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" />
                   </div>
-
                   <div>
-                    <Label htmlFor="notes">Note</Label>
-                    <Textarea 
-                      id="notes" 
-                      value={notes} 
-                      onChange={e => setNotes(e.target.value)} 
-                      placeholder="Sensazioni, fastidi, ecc." 
-                      className="mt-1"
-                    />
+                    <Label htmlFor="notes" className="dark:text-gray-300">Note</Label>
+                    <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Sensazioni, fastidi, ecc." className="mt-1" />
                   </div>
                 </main>
-
-                <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-col gap-3">
-                  <Button onClick={handleSave} className={`w-full h-12 text-lg text-white ${activeTheme.bgClass} hover:opacity-90`}>
-                    Salva Performance
+                <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-col gap-2">
+                  <Button onClick={handleSave} className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`}>
+                    <Save size={16} className="mr-2" /> Salva Performance
                   </Button>
-                  <Button onClick={onClose} variant="ghost" className="w-full">
-                    Annulla
-                  </Button>
+                  <Button variant="ghost" onClick={onClose}>Annulla</Button>
                 </footer>
               </Dialog.Panel>
             </Transition.Child>
