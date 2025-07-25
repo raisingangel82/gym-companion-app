@@ -47,15 +47,22 @@ function MainAppLayout() {
     }
   }, [isPlaying, playerRef, decorativePlayerRef]);
   
+  // --- MODIFICA CHIAVE ALLA LOGICA ---
   const handleCompleteOnboarding = useCallback(async (data: UserProfile) => {
     if (!user) return;
     try {
       await updateUserProfile(user.uid, data);
-      setIsOnboardingModalOpen(false);
     } catch (error) {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
+      // Opzionale: potresti mostrare un alert all'utente qui
+      // alert("Errore nel salvataggio del profilo.");
+    } finally {
+      // Questa riga viene eseguita SEMPRE, sia che il salvataggio
+      // abbia successo o fallisca, garantendo la chiusura del modale.
+      setIsOnboardingModalOpen(false);
     }
   }, [user]);
+  // --- FINE MODIFICA ---
   
   const actionConfig: ActionConfig = useMemo(() => {
     if (location.pathname === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
@@ -87,7 +94,6 @@ function MainAppLayout() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
-      {/* Ripristinata la versione del layout che correggeva l'altezza senza modifiche strutturali */}
       <main className="flex-1 overflow-y-auto pb-24">
         <Outlet />
       </main>
