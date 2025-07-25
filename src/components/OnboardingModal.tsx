@@ -1,4 +1,4 @@
-import { useState, Fragment } from 'react';
+import { useState, Fragment, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import type { UserProfile } from '../types';
 import { Button } from './ui/Button';
@@ -11,14 +11,21 @@ import { Step3_Health } from './onboarding/Step3_Health';
 interface OnboardingModalProps {
   isOpen: boolean;
   onComplete: (data: UserProfile) => void;
+  initialData?: UserProfile | null;
 }
 
 const TOTAL_STEPS = 3;
 
-export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete }) => {
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete, initialData }) => {
   const { activeTheme } = useTheme();
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState<UserProfile>({});
+
+  useEffect(() => {
+    if (isOpen) {
+      setUserData(initialData || {});
+    }
+  }, [isOpen, initialData]);
 
   const handleNext = () => setStep(prev => Math.min(prev + 1, TOTAL_STEPS));
   const handleBack = () => setStep(prev => Math.max(prev - 1, 1));
@@ -66,7 +73,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComp
                   {renderStepContent()}
                 </main>
                 <footer className="bg-gray-50 dark:bg-gray-700/50 p-4 flex justify-between items-center">
-                  <Button variant="outline" onClick={handleBack} disabled={step === 1}>
+                  <Button variant="outline" onClick={handleBack} disabled={step === 1} className="dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
                     <ArrowLeft size={16} className="mr-2" />
                     Indietro
                   </Button>

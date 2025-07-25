@@ -87,7 +87,7 @@ function MainAppLayout() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
-      {/* MODIFICA: Rimosso pt-16 per correggere l'altezza della pagina */}
+      {/* Ripristinata la versione del layout che correggeva l'altezza senza modifiche strutturali */}
       <main className="flex-1 overflow-y-auto pb-24">
         <Outlet />
       </main>
@@ -113,6 +113,7 @@ function MainAppLayout() {
       <OnboardingModal
         isOpen={isOnboardingModalOpen}
         onComplete={handleCompleteOnboarding}
+        initialData={user}
       />
     </div>
   );
