@@ -8,7 +8,8 @@ import { Button } from '../components/ui/Button';
 import { RestTimerModal } from '../components/RestTimerModal';
 import { ExerciseLogModal } from '../components/ExerciseLogModal';
 import { SessionLogModal, type SessionLogData } from '../components/SessionLogModal';
-import { Info, ImageOff, Undo2, Save } from 'lucide-react';
+import { ExerciseSubstitutionModal } from '../components/ExerciseSubstitutionModal';
+import { Info, ImageOff, Undo2, Save, Repeat } from 'lucide-react';
 import type { Exercise, SetPerformance } from '../types';
 
 const ProgressDots: React.FC<{ total: number; current: number; performance: SetPerformance[] }> = ({ total, current, performance }) => (
@@ -33,6 +34,7 @@ export const WorkoutPage: React.FC = () => {
   const [currentExIndex, setCurrentExIndex] = useState(0);
   const [logModalState, setLogModalState] = useState<{ isOpen: boolean; ex?: Exercise; setIndex?: number }>({ isOpen: false });
   const [isSessionLogModalOpen, setIsSessionLogModalOpen] = useState(false);
+  const [isSubstitutionModalOpen, setIsSubstitutionModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [timerPosition, setTimerPosition] = useState<{ top: number; left: number; width: number; height: number; } | null>(null);
 
@@ -104,6 +106,8 @@ export const WorkoutPage: React.FC = () => {
     setIsSessionLogModalOpen(false);
   };
 
+  const currentExerciseForSubstitution = activeWorkout?.exercises[currentExIndex] || null;
+
   if (!activeWorkout) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-8">
@@ -140,9 +144,13 @@ export const WorkoutPage: React.FC = () => {
                 </div>
               </Card>
 
-              <div className="grid grid-cols-2 gap-4 pt-4">
+              {/* Layout della barra di azioni aggiornato a 3 colonne */}
+              <div className="grid grid-cols-3 gap-4 pt-4">
                 <Button onClick={handleUndoLastSet} variant="secondary" disabled={!currentExercisePerformance.length || currentExIndex !== exIndex}>
-                  <Undo2 size={16} className="mr-2" /> Annulla Set
+                  <Undo2 size={16} className="mr-2" /> Annulla
+                </Button>
+                <Button onClick={() => setIsSubstitutionModalOpen(true)} variant="outline" title="Sostituisci esercizio con AI">
+                  <Repeat size={16} className="mr-2"/> Sostituisci
                 </Button>
                 <Button onClick={() => setIsSessionLogModalOpen(true)} className={`text-white hover:opacity-90 ${activeTheme.bgClass}`} disabled={!hasPerformanceData}>
                   <Save size={16} className="mr-2" /> Termina
@@ -155,7 +163,6 @@ export const WorkoutPage: React.FC = () => {
       
       <RestTimerModal position={timerPosition} duration={restTime} onClose={() => setTimerPosition(null)} />
       
-      {/* CORREZIONE APPLICATA QUI SOTTO */}
       {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
         <ExerciseLogModal 
           isOpen={logModalState.isOpen} 
@@ -170,6 +177,12 @@ export const WorkoutPage: React.FC = () => {
         isOpen={isSessionLogModalOpen}
         onClose={() => setIsSessionLogModalOpen(false)}
         onSave={handleSaveSession}
+      />
+
+      <ExerciseSubstitutionModal
+        isOpen={isSubstitutionModalOpen}
+        onClose={() => setIsSubstitutionModalOpen(false)}
+        exerciseToSubstitute={currentExerciseForSubstitution}
       />
     </>
   );
