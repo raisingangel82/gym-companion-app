@@ -12,7 +12,7 @@ const functionOptions = {
     /localhost:\d+$/, 
     "https://gym-companion-cb3af.web.app",
     // IMPORTANTE: Sostituisci con il tuo URL di Vercel definitivo
-    "https://gym-companion-9enl6lsh8-gianluca-borrellis-projects.vercel.app" 
+    "https://gym-companion-app.vercel.app/" 
   ] 
 };
 
