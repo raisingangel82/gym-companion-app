@@ -1,9 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { usePageAction } from '../contexts/PageActionContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
-import { ProModal } from '../components/ProModal';
+import { ReportModal, type ReportData } from '../components/ReportModal';
 import { BarChart3, TrendingUp, Info } from 'lucide-react';
 import {
   AreaChart,
@@ -15,7 +17,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-//import type { Workout } from '../types';
 
 interface ChartDataPoint {
   date: string;
@@ -30,8 +31,11 @@ export const StatsPage: React.FC = () => {
   const { workouts } = useWorkouts();
   const { registerAction } = usePageAction();
   const { theme, activeTheme } = useTheme();
+  const { user } = useAuth();
   
-  const [proModalOpen, setProModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const exerciseStats = useMemo(() => {
     const stats: Record<string, ChartDataPoint[]> = {};
@@ -69,14 +73,50 @@ export const StatsPage: React.FC = () => {
     }
   }, [availableExercises, selectedExercise]);
   
+  const handleGenerateReport = async () => {
+    if (!user || isGeneratingReport || !selectedExercise) return;
+
+    const relevantWorkout = workouts.find(w => w.exercises.some(ex => ex.name === selectedExercise));
+    if (!relevantWorkout || relevantWorkout.history.length === 0) {
+        alert("Seleziona un esercizio da un allenamento con una cronologia per generare un report.");
+        return;
+    }
+
+    setIsGeneratingReport(true);
+    setReportData(null);
+    setIsReportModalOpen(true);
+
+    try {
+        const functions = getFunctions();
+        const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport');
+        
+        const userProfile = { goal: user.goal, injuries: user.injuries };
+        
+        const result = await generatePerformanceReport({ 
+            userProfile, 
+            workoutHistory: relevantWorkout.history,
+            workoutName: relevantWorkout.name 
+        });
+
+        setReportData(result.data as ReportData);
+
+    } catch (error) {
+        console.error("Errore durante la generazione del report:", error);
+        alert("Si è verificato un errore durante la generazione del report.");
+        setIsReportModalOpen(false);
+    } finally {
+        setIsGeneratingReport(false);
+    }
+  };
+  
   useEffect(() => {
-    if (availableExercises.length > 0) {
-      registerAction(() => setProModalOpen(true));
+    if (availableExercises.length > 0 && user?.plan === 'Pro') {
+      registerAction(handleGenerateReport);
     } else {
       registerAction(null);
     }
     return () => registerAction(null);
-  }, [availableExercises.length, registerAction]);
+  }, [availableExercises.length, user, registerAction, selectedExercise, workouts]);
 
   const selectedExerciseData = exerciseStats[selectedExercise] || [];
   const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
@@ -133,10 +173,12 @@ export const StatsPage: React.FC = () => {
           </div>
         </Card>
       )}
-      <ProModal 
-        isOpen={proModalOpen}
-        onClose={() => setProModalOpen(false)}
-        featureName="Report e Analisi AI"
+      
+      <ReportModal 
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportData={reportData}
+        isLoading={isGeneratingReport}
       />
     </div>
   );

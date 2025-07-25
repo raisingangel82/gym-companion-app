@@ -4,15 +4,14 @@ import { VertexAI } from "@google-cloud/vertexai";
 
 initializeApp();
 
-// Configurazione condivisa per entrambe le funzioni
+// Configurazione condivisa aggiornata per la regione europea
 const functionOptions = { 
-  region: "us-central1", 
+  region: "europe-west1",
   timeoutSeconds: 300, 
   cors: [
     /localhost:\d+$/, 
     "https://gym-companion-cb3af.web.app",
-    // IMPORTANTE: Sostituisci con il tuo URL di Vercel definitivo
-    "https://gym-companion-app.vercel.app/" 
+    "https://gym-companion-app.vercel.app" // Assicurati che questo sia il tuo URL di produzione Vercel
   ] 
 };
 
@@ -66,23 +65,18 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
 `;
 
   try {
-    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'us-central1' });
+    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
     const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!responseText) {
-      throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
-    }
+    if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
     
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!jsonMatch || !jsonMatch[1]) {
-      throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
-    }
+    if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
     
     const parsedJson = JSON.parse(jsonMatch[1]);
-    
     return parsedJson;
 
   } catch (error) {
@@ -97,10 +91,7 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
  * Funzione Callable per trovare un esercizio sostitutivo con AI.
  */
 export const getExerciseSubstitution = onCall(functionOptions, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
-  }
-
+  if (!request.auth) throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
   const { userProfile, exerciseToSubstitute, reason } = request.data;
   if (!userProfile || !exerciseToSubstitute || !reason) {
     throw new HttpsError("invalid-argument", "Dati incompleti per la sostituzione dell'esercizio.");
@@ -142,20 +133,16 @@ Analizza la situazione e fornisci la migliore sostituzione possibile per l'eserc
 `;
 
   try {
-    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'us-central1' });
+    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
     const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!responseText) {
-      throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
-    }
+    if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
     
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!jsonMatch || !jsonMatch[1]) {
-      throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
-    }
+    if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
     
     const parsedJson = JSON.parse(jsonMatch[1]);
     return parsedJson;
@@ -164,5 +151,65 @@ Analizza la situazione e fornisci la migliore sostituzione possibile per l'eserc
     console.error("Errore durante la sostituzione dell'esercizio:", error);
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", "Impossibile ottenere una sostituzione dall'AI.");
+  }
+});
+
+
+/**
+ * Funzione Callable per generare un report delle performance.
+ */
+export const generatePerformanceReport = onCall(functionOptions, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
+  const { userProfile, workoutHistory, workoutName } = request.data;
+  if (!userProfile || !workoutHistory || !workoutName) {
+    throw new HttpsError("invalid-argument", "Dati incompleti per la generazione del report.");
+  }
+
+  const prompt = `
+# RUOLO
+Sei "Alpha-Trainer", un'intelligenza artificiale esperta in analisi dei dati di performance atletica. Il tuo compito è interpretare i dati di allenamento dell'utente, tradurli in un report comprensibile e fornire una raccomandazione strategica basata sull'evidenza.
+# CONTESTO
+L'utente ha completato un ciclo di allenamento e ha richiesto una valutazione delle sue performance per la scheda "${workoutName}".
+- Dati Utente:
+  - Obiettivo del ciclo: ${userProfile.goal || 'Miglioramento generale'}
+- Dati del Ciclo di Allenamento Appena Concluso:
+  - Log di Allenamento: ${JSON.stringify(workoutHistory, null, 2)}
+- Feedback Soggettivo (Sintesi dei log):
+  - Dolori riportati: ${userProfile.injuries || 'Nessuno'}
+# COMPITO
+Analizza tutti i dati forniti per valutare i progressi, identificare punti di forza e di debolezza, e consigliare la strategia migliore per il prossimo ciclo di allenamento. La tua risposta deve essere in formato JSON.
+# FORMATO DI OUTPUT (Obbligatorio: solo JSON)
+\`\`\`json
+{
+  "title": "Report di Performance - Ciclo Corrente",
+  "summary": "Un paragrafo riassuntivo di 2-3 frasi sui progressi generali, successi e aree di attenzione.",
+  "strengths": ["Punto di forza 1 (es. Ottima progressione del carico su Panca Piana).","Punto di forza 2 (es. Aderenza al programma molto alta)."],
+  "weaknesses": ["Area di miglioramento 1 (es. Stallo del carico sullo Squat).","Area di miglioramento 2 (es. Affaticamento generale riportato nei feedback soggettivi)."],
+  "recommendedOption": {"title": "Opzione A (Consigliata): Settimana di Scarico Attivo (Deload)","why": "Spiegazione del perché questa è l'opzione migliore.","how": "Descrizione di come implementare la raccomandazione."},
+  "alternativeOption": {"title": "Opzione B (Alternativa): Nuovo Ciclo con Modifiche","why": "Spiegazione dell'alternativa.","how": "Descrizione di come implementare l'alternativa."},
+  "nextStep": "Una domanda finale per l'utente per fargli scegliere come procedere."
+}
+\`\`\`
+`;
+
+  try {
+    const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
+    const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
+    
+    const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+    if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
+    
+    const parsedJson = JSON.parse(jsonMatch[1]);
+    return parsedJson;
+
+  } catch (error) {
+    console.error("Errore durante la generazione del report:", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Impossibile generare il report AI.");
   }
 });
