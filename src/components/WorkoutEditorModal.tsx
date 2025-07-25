@@ -34,19 +34,13 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     
     if (field === 'type') {
       if (value === 'strength') {
-        exercise.duration = undefined;
-        exercise.speed = undefined;
-        exercise.level = undefined;
-        exercise.sets = 3;
-        exercise.reps = '8-12';
+        exercise.duration = undefined; exercise.speed = undefined; exercise.level = undefined;
+        exercise.sets = 3; exercise.reps = '8-12';
       } else {
-        exercise.sets = undefined;
-        exercise.reps = undefined;
-        exercise.weight = undefined;
+        exercise.sets = undefined; exercise.reps = undefined; exercise.weight = undefined;
         exercise.duration = 20;
       }
     }
-
     (exercise as any)[field] = value;
     newExercises[index] = exercise;
     setExercises(newExercises);
@@ -74,11 +68,8 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   };
 
   const handleSave = () => {
-    if (!name.trim()) {
-      alert("Il nome della scheda non può essere vuoto.");
-      return;
-    }
-
+    if (!name.trim()) return alert("Il nome della scheda non può essere vuoto.");
+    
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
 
     const finalizedExercises = validExercises.map(ex => {
@@ -106,10 +97,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       }
     }) as Exercise[];
 
-    if (finalizedExercises.length === 0) {
-      alert("La scheda deve contenere almeno un esercizio valido.");
-      return;
-    }
+    if (finalizedExercises.length === 0) return alert("La scheda deve contenere almeno un esercizio valido.");
 
     const workoutDataToSave: WorkoutData = {
       name: name,
@@ -123,9 +111,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
-        </Transition.Child>
+        <Transition.Child as={Fragment}><div className="fixed inset-0 bg-black/30 backdrop-blur-sm" /></Transition.Child>
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child as={Fragment}>
