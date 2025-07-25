@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { usePageAction } from '../contexts/PageActionContext';
@@ -87,7 +88,8 @@ export const StatsPage: React.FC = () => {
     setIsReportModalOpen(true);
 
     try {
-        const functions = getFunctions();
+        // CORREZIONE: Specifica la regione corretta per le funzioni
+        const functions = getFunctions(getApp(), 'europe-west1');
         const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport');
         
         const userProfile = { goal: user.goal, injuries: user.injuries };
@@ -116,7 +118,7 @@ export const StatsPage: React.FC = () => {
       registerAction(null);
     }
     return () => registerAction(null);
-  }, [availableExercises.length, user, registerAction, selectedExercise, workouts]);
+  }, [availableExercises.length, user, selectedExercise, workouts]);
 
   const selectedExerciseData = exerciseStats[selectedExercise] || [];
   const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';

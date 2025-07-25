@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
@@ -94,17 +95,14 @@ export const ManagePage: React.FC = () => {
     if(event.target) event.target.value = '';
   };
 
-  //const jsonExample = `[ { "name": "Seduta 1", "exercises": [ ... ] } ]`;
-
   const handleGenerateAIClick = async () => {
     if (user && user.plan === 'Pro') {
       setIsGenerating(true);
       try {
-        const functions = getFunctions();
+        // CORREZIONE: Specifica la regione corretta per le funzioni
+        const functions = getFunctions(getApp(), 'europe-west1');
         const generateAiWorkoutPlan = httpsCallable(functions, 'generateAiWorkoutPlan');
         
-        // ## INIZIO MODIFICA ##
-        // Creiamo un oggetto "pulito" con solo i dati necessari per l'AI.
         const userProfileData = {
           gender: user.gender,
           age: user.age,
@@ -118,10 +116,7 @@ export const ManagePage: React.FC = () => {
           injuries: user.injuries,
         };
         
-        // Inviamo solo l'oggetto pulito, non l'intero 'user'.
         const result = await generateAiWorkoutPlan(userProfileData);
-        // ## FINE MODIFICA ##
-
         const generatedWorkouts = result.data as Omit<WorkoutData, 'createdAt' | 'history'>[];
 
         if (!generatedWorkouts || generatedWorkouts.length === 0) {
