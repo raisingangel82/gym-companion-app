@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext'; // Importa il tema
+import { useTheme } from '../contexts/ThemeContext';
 import { auth } from '../services/firebase';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
@@ -15,9 +15,17 @@ export const SignupPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { signUp } = useAuth();
-  const { activeTheme } = useTheme(); // Usa il tema per i colori
+  const { signUp, user } = useAuth(); // Aggiunto 'user'
+  const { activeTheme } = useTheme();
   const navigate = useNavigate();
+
+  // NUOVO: Questo hook reagisce al cambio di stato dell'utente
+  useEffect(() => {
+    // Se l'utente è loggato (dopo la registrazione), naviga alla home.
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +36,7 @@ export const SignupPage: React.FC = () => {
     setIsLoading(true);
     try {
       await signUp(auth, email, password);
-      navigate('/'); 
+      // La navigazione non avviene più qui, ma nell'useEffect
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('Questo indirizzo email è già in uso.');
@@ -36,8 +44,8 @@ export const SignupPage: React.FC = () => {
         setError('Errore durante la registrazione. Riprova.');
       }
       console.error(err);
+      setIsLoading(false); // Ferma il loading solo in caso di errore
     }
-    setIsLoading(false);
   };
 
   return (
@@ -57,12 +65,7 @@ export const SignupPage: React.FC = () => {
         </div>
         {error && <p className="text-sm text-red-500 text-center">{error}</p>}
         <div>
-          {/* BOTTONE CON COLORE DEL TEMA */}
-          <Button 
-            type="submit" 
-            className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`} 
-            disabled={isLoading}
-          >
+          <Button type="submit" className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`} disabled={isLoading}>
             {isLoading ? 'Creazione account...' : 'Registrati'}
           </Button>
         </div>

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../components/AuthLayout';
 import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext'; // Importa il tema
+import { useTheme } from '../contexts/ThemeContext';
 import { auth } from '../services/firebase';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
@@ -14,9 +14,17 @@ export const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { signIn, signInWithGoogle } = useAuth();
-  const { activeTheme } = useTheme(); // Usa il tema per i colori
+  const { signIn, signInWithGoogle, user } = useAuth(); // Aggiunto 'user'
+  const { activeTheme } = useTheme();
   const navigate = useNavigate();
+
+  // NUOVO: Questo hook reagisce al cambio di stato dell'utente
+  useEffect(() => {
+    // Se l'utente è loggato, naviga alla home.
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,12 +32,13 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       await signIn(auth, email, password);
-      navigate('/');
+      // La navigazione non avviene più qui, ma nell'useEffect
     } catch (err: any) {
       setError('Credenziali non valide. Riprova.');
       console.error(err);
+      setIsLoading(false); // Assicurati che il loading si fermi in caso di errore
     }
-    setIsLoading(false);
+    // Non serve più setIsLoading(false) qui, perché la navigazione smonterà il componente
   };
 
   const handleGoogleSignIn = async () => {
@@ -37,12 +46,12 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       await signInWithGoogle();
-      navigate('/');
+      // La navigazione non avviene più qui, ma nell'useEffect
     } catch (err: any) {
       setError('Impossibile accedere con Google.');
       console.error(err);
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
@@ -58,12 +67,7 @@ export const LoginPage: React.FC = () => {
         </div>
         {error && <p className="text-sm text-red-500 text-center">{error}</p>}
         <div>
-          {/* BOTTONE CON COLORE DEL TEMA */}
-          <Button 
-            type="submit" 
-            className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`} 
-            disabled={isLoading}
-          >
+          <Button type="submit" className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`} disabled={isLoading}>
             {isLoading ? 'Accesso in corso...' : 'Accedi'}
           </Button>
         </div>
