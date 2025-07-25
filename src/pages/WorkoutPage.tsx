@@ -24,7 +24,7 @@ export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
     const { restTime, autoRestTimer } = useSettings();
     const { registerAction } = usePageAction();
-    const { activeTheme, theme } = useTheme();
+    const { activeTheme } = useTheme();
 
     const [currentExIndex, setCurrentExIndex] = useState(0);
     const [logModalState, setLogModalState] = useState<{ isOpen: boolean; ex?: Exercise; setIndex?: number }>({ isOpen: false });
