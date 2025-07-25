@@ -1,6 +1,7 @@
 import React, { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getApp } from 'firebase/app';
 import { Button } from './ui/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,7 +55,7 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
     setAiResponse(null);
     setError(null);
     try {
-      const functions = getFunctions();
+      const functions = getFunctions(getApp(), 'europe-west1');
       const getExerciseSubstitution = httpsCallable(functions, 'getExerciseSubstitution');
       
       const userProfile: Partial<UserProfile> = { 
@@ -63,9 +64,16 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
         injuries: user.injuries 
       };
 
-      console.log("Dati inviati alla funzione:", { userProfile, exerciseToSubstitute, reason: selectedReason });
+      // --- MODIFICA CHIAVE ---
+      // Creiamo un oggetto semplice con solo il nome dell'esercizio da inviare
+      const simpleExercise = { name: exerciseToSubstitute.name };
 
-      const result = await getExerciseSubstitution({ userProfile, exerciseToSubstitute, reason: selectedReason });
+      const result = await getExerciseSubstitution({ 
+          userProfile, 
+          exerciseToSubstitute: simpleExercise, // Inviamo l'oggetto semplice
+          reason: selectedReason 
+      });
+      // --- FINE MODIFICA ---
       
       setAiResponse(result.data as AIResponse);
 
@@ -87,19 +95,6 @@ export const ExerciseSubstitutionModal: React.FC<SubstitutionModalProps> = ({ is
           <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
-                <div className="p-2 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
-                    <h4 className="font-bold text-xs">Dati Utente (Debug):</h4>
-                    <pre className="text-xs whitespace-pre-wrap break-all">
-                        {JSON.stringify({
-                            uid: user?.uid,
-                            email: user?.email,
-                            plan: user?.plan,
-                            goal: user?.goal,
-                            experience: user?.experience,
-                        }, null, 2)}
-                    </pre>
-                </div>
-
                 <div className="p-6">
                   <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">
                     Sostituisci Esercizio
