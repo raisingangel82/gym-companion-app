@@ -76,7 +76,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       const baseExercise = {
         name: ex.name!,
         type: ex.type || 'strength',
-        imageUrl: ex.imageUrl,
+        imageUrl: ex.imageUrl || null, // <-- MODIFICA APPLICATA QUI
         performance: ex.performance || [],
       };
 
@@ -105,6 +105,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       createdAt: workout?.createdAt || new Date(),
       history: workout?.history || [],
     };
+    
     onSave(workoutDataToSave);
   };
 
