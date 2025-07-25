@@ -9,7 +9,7 @@ import { RestTimerModal } from '../components/RestTimerModal';
 import { ExerciseLogModal } from '../components/ExerciseLogModal';
 import { SessionLogModal, type SessionLogData } from '../components/SessionLogModal';
 import { ExerciseSubstitutionModal } from '../components/ExerciseSubstitutionModal';
-import { Info, ImageOff, Undo2, Save, Repeat } from 'lucide-react';
+import { Info, ImageOff, Undo2, Save, Repeat, HeartPulse } from 'lucide-react';
 import type { Exercise, SetPerformance } from '../types';
 
 const ProgressDots: React.FC<{ total: number; current: number; performance: SetPerformance[] }> = ({ total, current, performance }) => (
@@ -43,8 +43,9 @@ export const WorkoutPage: React.FC = () => {
   useEffect(() => {
     const currentVisibleExercise = activeWorkout?.exercises?.[currentExIndex];
     if (currentVisibleExercise) {
+      // CORREZIONE: Usa un fallback a 0 per 'sets'
       const nextSetIndex = currentVisibleExercise.performance?.length || 0;
-      if (nextSetIndex < currentVisibleExercise.sets) {
+      if (nextSetIndex < (currentVisibleExercise.sets || 1)) {
         const action = () => setLogModalState({ isOpen: true, ex: currentVisibleExercise, setIndex: nextSetIndex });
         registerAction(action);
       } else {
@@ -139,12 +140,21 @@ export const WorkoutPage: React.FC = () => {
                 <div className="relative z-10 flex flex-col h-full p-4 justify-between">
                   <h2 className="text-2xl font-bold text-shadow-lg">{exercise.name}</h2>
                   <div className="space-y-4">
-                    <ProgressDots total={exercise.sets} current={currentExercisePerformance.length} performance={currentExercisePerformance} />
+                    {exercise.type === 'cardio' ? (
+                        <div className="text-center">
+                            <HeartPulse size={24} className="mx-auto mb-2 text-red-400"/>
+                            <p className="font-mono">{exercise.duration} min</p>
+                        </div>
+                    ) : (
+                        <ProgressDots 
+                          total={exercise.sets || 0} // CORREZIONE: Usa un fallback a 0 per 'sets'
+                          current={currentExercisePerformance.length} 
+                          performance={currentExercisePerformance} 
+                        />
+                    )}
                   </div>
                 </div>
               </Card>
-
-              {/* Layout della barra di azioni aggiornato a 3 colonne */}
               <div className="grid grid-cols-3 gap-4 pt-4">
                 <Button onClick={handleUndoLastSet} variant="secondary" disabled={!currentExercisePerformance.length || currentExIndex !== exIndex}>
                   <Undo2 size={16} className="mr-2" /> Annulla
@@ -160,9 +170,7 @@ export const WorkoutPage: React.FC = () => {
           );
         })}
       </div>
-      
       <RestTimerModal position={timerPosition} duration={restTime} onClose={() => setTimerPosition(null)} />
-      
       {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
         <ExerciseLogModal 
           isOpen={logModalState.isOpen} 
@@ -172,13 +180,11 @@ export const WorkoutPage: React.FC = () => {
           setIndex={logModalState.setIndex} 
         />
       )}
-      
       <SessionLogModal
         isOpen={isSessionLogModalOpen}
         onClose={() => setIsSessionLogModalOpen(false)}
         onSave={handleSaveSession}
       />
-
       <ExerciseSubstitutionModal
         isOpen={isSubstitutionModalOpen}
         onClose={() => setIsSubstitutionModalOpen(false)}

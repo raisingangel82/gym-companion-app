@@ -3,7 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-react';
-import { ExerciseFinder } from './ExerciseFinder';
+// 'ExerciseFinder' rimosso da qui
 import { useTheme } from '../contexts/ThemeContext';
 import type { Workout, WorkoutData, Exercise } from '../types';
 
@@ -18,7 +18,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   const { activeTheme } = useTheme();
   const [name, setName] = useState('');
   const [exercises, setExercises] = useState<Partial<Exercise>[]>([]);
-  const [findingImageForIndex, setFindingImageForIndex] = useState<number | null>(null);
+  const [findingImageForIndex, setFindingImageForIndex] = useState<number | null>(null); // Stato mantenuto per futura implementazione
 
   useEffect(() => {
     if (isOpen) {
@@ -113,7 +113,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                            <div className="flex-shrink-0 flex items-center">
                             <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'up')} disabled={index === 0} className="text-gray-500"><ArrowUp size={16}/></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'down')} disabled={index === exercises.length - 1} className="text-gray-500"><ArrowDown size={16}/></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setFindingImageForIndex(findingImageForIndex === index ? null : index)} className="text-sky-500"><ImageIcon size={16} /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => {}} className="text-sky-500"><ImageIcon size={16} /></Button>
                             <Button variant="ghost" size="icon" onClick={() => removeExercise(index)} className="text-red-500"><Trash2 size={16} /></Button>
                           </div>
                         </div>
