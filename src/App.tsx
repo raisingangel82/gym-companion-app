@@ -12,6 +12,7 @@ import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { UpdatePrompt } from './components/UpdatePrompt'; // <-- NUOVO IMPORT
 import { WorkoutPage } from './pages/WorkoutPage';
 import { ManagePage } from './pages/ManagePage';
 import { StatsPage } from './pages/StatsPage';
@@ -131,6 +132,7 @@ function App() {
                 </Route>
               </Route>
             </Routes>
+            <UpdatePrompt />
           </PageActionProvider>
         </MusicProvider>
       </SettingsProvider>

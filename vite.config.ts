@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       // Sezione manifest aggiunta/aggiornata
       manifest: {
         name: 'Gym Companion',
@@ -19,12 +19,12 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'icon-192x192.png', // Il file che hai messo in /public
+            src: 'logo.png', // Il file che hai messo in /public
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'icon-512x512.png', // Il file che hai messo in /public
+            src: 'logo.png', // Il file che hai messo in /public
             sizes: '512x512',
             type: 'image/png'
           }
