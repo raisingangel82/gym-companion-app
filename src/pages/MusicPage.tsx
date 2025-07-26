@@ -86,7 +86,7 @@ export const MusicPage: React.FC = () => {
         <Card className="w-full max-w-lg mx-auto flex flex-col justify-center overflow-hidden relative text-white bg-black min-h-[35vh]">
           {isMusicActive ? (
             <>
-              <img src={coverImageUrl} alt="Copertina brano" className="absolute inset-0 w-full h-full object-cover" />
+              <img src={coverImageUrl} alt="Copertina brano" className="absolute inset-0 w-full h-full object-fit" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
               <div className="relative z-10 flex flex-col h-full p-6 justify-center text-center">
                 <h2 className="text-2xl font-bold text-shadow-lg">{currentTrack.title || 'Caricamento...'}</h2>

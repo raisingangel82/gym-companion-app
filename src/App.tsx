@@ -8,7 +8,7 @@ import { usePageAction, PageActionProvider } from './contexts/PageActionContext'
 import { useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
-import { TimerProvider, useTimer } from './contexts/TimerContext';
+import { TimerProvider, useTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Transition } from '@headlessui/react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useTimer } from '../contexts/TimerContext';
+import { useTimer } from '../contexts/RestTimerContext';
 import { Button } from './ui/Button';
 import { Volume2, VolumeX, Plus, BellOff } from 'lucide-react';
 

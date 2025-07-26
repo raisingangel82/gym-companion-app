@@ -3,7 +3,7 @@ import { useWorkouts } from '../hooks/useWorkouts';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePageAction } from '../contexts/PageActionContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useTimer } from '../contexts/TimerContext';
+import { useTimer } from '../contexts/RestTimerContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ExerciseLogModal } from '../components/ExerciseLogModal';
