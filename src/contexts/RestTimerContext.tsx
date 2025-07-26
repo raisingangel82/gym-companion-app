@@ -59,7 +59,15 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
     document.addEventListener('click', initAndUnlockAudio, { once: true });
-    return () => audioContextRef.current?.close().catch(() => {});
+
+    // ===================================================================
+    // ECCO LA CORREZIONE
+    // Aggiungendo le parentesi graffe {}, la funzione non restituisce più
+    // la Promise generata da .close(), risolvendo l'errore.
+    // ===================================================================
+    return () => {
+      audioContextRef.current?.close().catch(() => {});
+    };
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -81,18 +89,12 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [timeLeft, isTimerActive, stopTimer]);
   
-  // ===================================================================
-  // ECCO LA CORREZIONE CHIAVE
-  // Questo useEffect ora gestisce l'allarme in modo più pulito.
-  // ===================================================================
   useEffect(() => {
     if (isAlarming) {
       const intervalId = setInterval(() => {
         playSound();
       }, 1200);
 
-      // La funzione di pulizia viene restituita e si occupa di fermare l'intervallo
-      // quando 'isAlarming' diventa 'false' o il componente si smonta.
       return () => {
         clearInterval(intervalId);
       };
