@@ -13,14 +13,15 @@ export const RestTimerModal: React.FC = () => {
     const seconds = timeLeft % 60;
     const progress = initialDuration > 0 ? (timeLeft / initialDuration) * 100 : 0;
 
-    if (!isTimerActive && !isAlarming) {
-        return null;
-    }
-    
     return (
         <Transition
             as={Fragment}
-            show={true} // Controlliamo la visibilità con il 'return null' sopra
+            // ===================================================================
+            // ECCO LA CORREZIONE CHIAVE
+            // La visibilità deve essere controllata direttamente dalla prop 'show'.
+            // Deve essere true se il timer è attivo OPPURE se l'allarme sta suonando.
+            // ===================================================================
+            show={isTimerActive || isAlarming}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -67,7 +68,10 @@ export const RestTimerModal: React.FC = () => {
                                 <Plus size={20} className="mr-1"/> 15s
                             </Button>
                             <Button
-                                onClick={stopTimer} 
+                                onClick={() => {
+                                  stopTimer();
+                                  // In futuro potresti voler chiamare anche stopAlarm() qui se vuoi che "Salta" spenga tutto subito
+                                }}
                                 className={`px-8 py-4 text-white font-semibold rounded-full ${activeTheme.bgClass} hover:opacity-90 scale-110`}
                                 aria-label="Salta riposo"
                             >
