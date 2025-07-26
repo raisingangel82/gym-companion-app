@@ -72,6 +72,12 @@ export interface Workout extends WorkoutData {
 
 // --- Tipi per l'Utente ---
 
+// MODIFICA: Aggiunto il nuovo tipo per le playlist preferite
+export interface FavoritePlaylist {
+  name: string;
+  url: string;
+}
+
 /** Definisce il profilo utente con i dati raccolti durante l'onboarding. */
 export interface UserProfile {
   plan?: 'Free' | 'Pro';
@@ -88,6 +94,8 @@ export interface UserProfile {
   injuries?: string;
   pathologies?: string;
   mobility_issues?: string;
+  // MODIFICA: Aggiunta la proprietà per le playlist preferite
+  favoritePlaylists?: FavoritePlaylist[];
 }
 
 /** Unisce l'utente di Firebase con il nostro profilo custom. */

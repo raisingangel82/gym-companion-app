@@ -8,6 +8,7 @@ import { usePageAction, PageActionProvider } from './contexts/PageActionContext'
 import { useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { TimerProvider, useTimer } from './contexts/TimerContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
 
@@ -17,6 +18,7 @@ import { BottomBar } from './components/BottomBar';
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { RestTimerModal } from './components/RestTimerModal';
 import { WorkoutPage } from './pages/WorkoutPage';
 import { ManagePage } from './pages/ManagePage';
 import { StatsPage } from './pages/StatsPage';
@@ -26,13 +28,16 @@ import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
-// Layout per l'applicazione principale (quando l'utente è loggato)
 function MainAppLayout() {
   const { isPlaying, setIsPlaying, videoId, playlistId, playerRef, setCurrentTrack, decorativePlayerRef } = useMusic();
   const { registeredAction } = usePageAction();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
+  
+  // MODIFICA: Otteniamo lo stato del timer e la posizione corrente
+  const { isTimerActive } = useTimer();
+  const currentPath = location.pathname;
 
   const handleTogglePlay = useCallback(() => {
     const mainPlayer = playerRef.current;
@@ -47,29 +52,23 @@ function MainAppLayout() {
     }
   }, [isPlaying, playerRef, decorativePlayerRef]);
   
-  // --- MODIFICA CHIAVE ALLA LOGICA ---
   const handleCompleteOnboarding = useCallback(async (data: UserProfile) => {
     if (!user) return;
     try {
       await updateUserProfile(user.uid, data);
     } catch (error) {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
-      // Opzionale: potresti mostrare un alert all'utente qui
-      // alert("Errore nel salvataggio del profilo.");
     } finally {
-      // Questa riga viene eseguita SEMPRE, sia che il salvataggio
-      // abbia successo o fallisca, garantendo la chiusura del modale.
       setIsOnboardingModalOpen(false);
     }
   }, [user]);
-  // --- FINE MODIFICA ---
   
   const actionConfig: ActionConfig = useMemo(() => {
-    if (location.pathname === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
-    if (location.pathname === '/manage') return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
-    if (location.pathname === '/stats') return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
+    if (currentPath === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
+    if (currentPath === '/manage') return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
+    if (currentPath === '/stats') return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
     return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId && !playlistId };
-  }, [location.pathname, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
+  }, [currentPath, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
 
   const shouldRenderPlayer = videoId || playlistId;
   const playerOptions = {
@@ -85,7 +84,7 @@ function MainAppLayout() {
   };
 
   const handlePlayerStateChange = (event: any) => {
-    if (event.data === 1 && playerRef.current) { // Stato 1 = In Riproduzione
+    if (event.data === 1 && playerRef.current) {
       const trackData = playerRef.current.getVideoData();
       setCurrentTrack({ id: trackData.video_id, title: trackData.title });
     }
@@ -121,6 +120,9 @@ function MainAppLayout() {
         onComplete={handleCompleteOnboarding}
         initialData={user}
       />
+      
+      {/* MODIFICA: Il timer viene renderizzato solo se è attivo E se siamo sulla pagina Workout */}
+      {isTimerActive && currentPath === '/' && <RestTimerModal />}
     </div>
   );
 }
@@ -129,24 +131,26 @@ function App() {
   return (
     <ThemeProvider>
       <SettingsProvider>
-        <MusicProvider>
-          <PageActionProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/upgrade" element={<UpgradePage />} />
-              <Route element={<ProtectedRoute />}>
-                <Route element={<MainAppLayout />}>
-                  <Route path="/" element={<WorkoutPage />} />
-                  <Route path="/manage" element={<ManagePage />} />
-                  <Route path="/stats" element={<StatsPage />} />
-                  <Route path="/music" element={<MusicPage />} />
+        <TimerProvider>
+          <MusicProvider>
+            <PageActionProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/upgrade" element={<UpgradePage />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route element={<MainAppLayout />}>
+                    <Route path="/" element={<WorkoutPage />} />
+                    <Route path="/manage" element={<ManagePage />} />
+                    <Route path="/stats" element={<StatsPage />} />
+                    <Route path="/music" element={<MusicPage />} />
+                  </Route>
                 </Route>
-              </Route>
-            </Routes>
-            <UpdatePrompt />
-          </PageActionProvider>
-        </MusicProvider>
+              </Routes>
+              <UpdatePrompt />
+            </PageActionProvider>
+          </MusicProvider>
+        </TimerProvider>
       </SettingsProvider>
     </ThemeProvider>
   );

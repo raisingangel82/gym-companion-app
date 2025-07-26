@@ -3,9 +3,11 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Label } from './ui/Label';
 import { Textarea } from './ui/Textarea';
-import { Input } from './ui/Input';
+// Rimuoviamo l'Input, non più usato per peso/reps
 import { Save } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { NumberStepper } from './ui/NumberStepper'; // Importiamo il nuovo componente
+import { RpeSelector } from './ui/RpeSelector';   // Importiamo il nuovo componente
 import type { Exercise, SetPerformance } from '../types';
 
 interface LogModalProps {
@@ -19,22 +21,24 @@ interface LogModalProps {
 export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onSave, exercise, setIndex }) => {
   const { activeTheme } = useTheme();
   
-  const [weight, setWeight] = useState('');
-  const [reps, setReps] = useState('');
-  const [duration, setDuration] = useState('');
-  const [speed, setSpeed] = useState('');
-  const [level, setLevel] = useState('');
+  // MODIFICA: Stati ora numerici per coerenza con i nuovi componenti
+  const [weight, setWeight] = useState(0);
+  const [reps, setReps] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [level, setLevel] = useState(0);
   const [rpe, setRpe] = useState(7);
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-        setWeight(String(exercise.weight ?? ''));
-        setReps(String(exercise.reps ?? ''));
-        setDuration(String(exercise.duration ?? ''));
-        setSpeed(String(exercise.speed ?? ''));
-        setLevel(String(exercise.level ?? ''));
+        // MODIFICA: Inizializzazione degli stati numerici
+        setWeight(Number(exercise.weight ?? 0));
+        setReps(Number(exercise.reps ?? 0));
+        setDuration(Number(exercise.duration ?? 0));
+        setSpeed(Number(exercise.speed ?? 0));
+        setLevel(Number(exercise.level ?? 0));
         setRpe(7);
         setNotes('');
         setIsSaving(false);
@@ -44,32 +48,23 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
   const handleSave = async () => {
     setIsSaving(true);
     
-    // --- MODIFICA CHIAVE ALLA LOGICA ---
-    // 1. Creiamo un oggetto base solo con i campi sempre presenti.
     const basePerformance: Partial<SetPerformance> = { rpe };
-
-    // 2. Aggiungiamo il campo 'notes' solo se non è vuoto.
     if (notes.trim()) {
       basePerformance.notes = notes.trim();
     }
     
-    // 3. Completiamo l'oggetto in base al tipo di esercizio.
     let performanceData: SetPerformance;
     if (exercise.type === 'cardio') {
       performanceData = {
         ...basePerformance,
-        duration: parseFloat(duration) || 0,
-        speed: parseFloat(speed) || 0,
-        level: parseFloat(level) || 0,
+        duration, speed, level,
       } as SetPerformance;
     } else {
       performanceData = {
         ...basePerformance,
-        weight: parseFloat(weight) || 0,
-        reps: parseInt(reps, 10) || 0,
+        weight, reps,
       } as SetPerformance;
     }
-    // --- FINE MODIFICA ---
 
     try {
         await onSave(performanceData);
@@ -100,21 +95,23 @@ export const ExerciseLogModal: React.FC<LogModalProps> = ({ isOpen, onClose, onS
                 <main className="p-6 space-y-6">
                   {exercise.type === 'cardio' ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-4">
-                        <div><Label htmlFor="duration" className="dark:text-gray-300">Durata (min)</Label><Input id="duration" type="number" value={duration} onChange={e => setDuration(e.target.value)} /></div>
-                        <div><Label htmlFor="speed" className="dark:text-gray-300">Velocità</Label><Input id="speed" type="number" value={speed} onChange={e => setSpeed(e.target.value)} /></div>
-                        <div><Label htmlFor="level" className="dark:text-gray-300">Livello</Label><Input id="level" type="number" value={level} onChange={e => setLevel(e.target.value)} /></div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div><Label className="dark:text-gray-300 text-center mb-1">Durata (min)</Label><NumberStepper value={duration} onChange={setDuration} step={1} /></div>
+                        <div><Label className="dark:text-gray-300 text-center mb-1">Velocità</Label><NumberStepper value={speed} onChange={setSpeed} step={0.5} /></div>
+                        <div><Label className="dark:text-gray-300 text-center mb-1">Livello</Label><NumberStepper value={level} onChange={setLevel} step={1} /></div>
                       </div>
                     </div>
                   ) : (
+                    // MODIFICA: Sostituzione degli Input con i NumberStepper
                     <div className="grid grid-cols-2 gap-4">
-                      <div><Label htmlFor="weight" className="dark:text-gray-300">Peso (kg)</Label><Input id="weight" type="number" value={weight} onChange={e => setWeight(e.target.value)} /></div>
-                      <div><Label htmlFor="reps" className="dark:text-gray-300">Reps</Label><Input id="reps" type="number" value={reps} onChange={e => setReps(e.target.value)} /></div>
+                      <div><Label className="dark:text-gray-300 text-center mb-1">Peso (kg)</Label><NumberStepper value={weight} onChange={setWeight} step={2.5} /></div>
+                      <div><Label className="dark:text-gray-300 text-center mb-1">Reps</Label><NumberStepper value={reps} onChange={setReps} step={1} /></div>
                     </div>
                   )}
                   <div>
-                    <Label htmlFor="rpe" className="dark:text-gray-300">Sforzo Percepito (RPE): <span className="font-bold">{rpe}</span></Label>
-                    <input id="rpe" type="range" min="1" max="10" step="0.5" value={rpe} onChange={(e) => setRpe(parseFloat(e.target.value))} className="w-full h-2 mt-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" />
+                    <Label className="dark:text-gray-300">Sforzo Percepito (RPE): <span className="font-bold">{rpe}</span></Label>
+                    {/* MODIFICA: Sostituzione del range slider con il RpeSelector */}
+                    <div className="mt-2"><RpeSelector value={rpe} onChange={setRpe} /></div>
                   </div>
                   <div>
                     <Label htmlFor="notes" className="dark:text-gray-300">Note</Label>

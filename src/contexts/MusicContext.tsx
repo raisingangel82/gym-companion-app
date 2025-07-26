@@ -36,16 +36,36 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const decorativePlayerRef = useRef<YouTubePlayer | null>(null);
 
   const playTrack = (id: string) => {
+    // Se si sta ricaricando la stessa traccia, forziamo il reset
+    if (videoId === id) {
+      setVideoId(null);
+      setTimeout(() => setVideoId(id), 0);
+    } else {
+      setVideoId(id);
+    }
     setPlaylistId(null);
-    setVideoId(id);
     setIsPlaying(true);
   };
 
+  // --- MODIFICA CHIAVE ALLA LOGICA ---
   const playPlaylist = (id: string) => {
-    setVideoId(null);
-    setPlaylistId(id);
+    setVideoId(null); // Ferma qualsiasi traccia singola
     setIsPlaying(true);
+
+    // Se stiamo tentando di ricaricare la STESSA playlist, dobbiamo forzare un re-render.
+    // Lo facciamo impostando l'ID a null e poi di nuovo all'ID corretto subito dopo.
+    // Il setTimeout(..., 0) assicura che React processi i due aggiornamenti separatamente.
+    if (playlistId === id) {
+      setPlaylistId(null);
+      setTimeout(() => {
+        setPlaylistId(id);
+      }, 0);
+    } else {
+      // Se è una playlist nuova, la impostiamo normalmente.
+      setPlaylistId(id);
+    }
   };
+  // --- FINE MODIFICA ---
   
   const stopMusic = () => {
     setVideoId(null);
