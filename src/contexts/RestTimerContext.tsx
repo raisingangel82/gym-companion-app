@@ -31,7 +31,7 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [timeLeft, setTimeLeft] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext>();
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   // Effetto per inizializzare il contesto audio in modo sicuro e robusto
   useEffect(() => {

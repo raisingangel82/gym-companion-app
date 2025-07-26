@@ -3,7 +3,7 @@ import { useWorkouts } from '../hooks/useWorkouts';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePageAction } from '../contexts/PageActionContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { useTimer } from '../contexts/RestTimerContext';
+import { useRestTimer } from '../contexts/RestTimerContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ExerciseLogModal } from '../components/ExerciseLogModal';
@@ -21,7 +21,7 @@ export const WorkoutPage: React.FC = () => {
     const { restTime, autoRestTimer } = useSettings();
     const { registerAction } = usePageAction();
     const { activeTheme } = useTheme();
-    const { startTimer } = useTimer();
+    const { startTimer } = useRestTimer();
 
     const [currentExIndex, setCurrentExIndex] = useState(0);
     const [logModalState, setLogModalState] = useState<{ isOpen: boolean; ex?: Exercise; setIndex?: number }>({ isOpen: false });

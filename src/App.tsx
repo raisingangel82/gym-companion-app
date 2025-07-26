@@ -8,7 +8,7 @@ import { usePageAction, PageActionProvider } from './contexts/PageActionContext'
 import { useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
-import { TimerProvider, useTimer } from './contexts/RestTimerContext';
+import { RestTimerProvider, useRestTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
 
@@ -36,7 +36,7 @@ function MainAppLayout() {
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   
   // MODIFICA: Otteniamo lo stato del timer e la posizione corrente
-  const { isTimerActive } = useTimer();
+  const { isTimerActive } = useRestTimer();
   const currentPath = location.pathname;
 
   const handleTogglePlay = useCallback(() => {
@@ -131,7 +131,7 @@ function App() {
   return (
     <ThemeProvider>
       <SettingsProvider>
-        <TimerProvider>
+        <RestTimerProvider>
           <MusicProvider>
             <PageActionProvider>
               <Routes>
@@ -150,7 +150,7 @@ function App() {
               <UpdatePrompt />
             </PageActionProvider>
           </MusicProvider>
-        </TimerProvider>
+        </RestTimerProvider>
       </SettingsProvider>
     </ThemeProvider>
   );

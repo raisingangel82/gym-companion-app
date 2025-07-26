@@ -1,13 +1,13 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { Transition } from '@headlessui/react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useTimer } from '../contexts/RestTimerContext';
+import { useRestTimer } from '../contexts/RestTimerContext';
 import { Button } from './ui/Button';
 import { Volume2, VolumeX, Plus, BellOff } from 'lucide-react';
 
 export const RestTimerModal: React.FC = () => {
     const { activeTheme } = useTheme();
-    const { isTimerActive, timeLeft, initialDuration, stopTimer, addTime, playSound } = useTimer();
+    const { isTimerActive, timeLeft, initialDuration, stopTimer, addTime, playSound } = useRestTimer();
     const [isMuted, setIsMuted] = useState(false);
     const [isAlarmRinging, setIsAlarmRinging] = useState(false);
 
