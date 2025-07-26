@@ -2,21 +2,20 @@
 
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 
-// Interfaccia che definisce la forma del nostro contesto
 interface RestTimerContextType {
   isTimerActive: boolean;
+  isAlarming: boolean; // NUOVO: Stato per l'allarme
   timeLeft: number;
   initialDuration: number;
   startTimer: (duration: number) => void;
   stopTimer: () => void;
   addTime: (seconds: number) => void;
   playSound: () => void;
+  stopAlarm: () => void; // NUOVO: Funzione per fermare l'allarme
 }
 
-// Creazione del contesto React
 const RestTimerContext = createContext<RestTimerContextType | undefined>(undefined);
 
-// Hook personalizzato per utilizzare il contesto più facilmente
 export const useRestTimer = () => {
   const context = useContext(RestTimerContext);
   if (!context) {
@@ -25,57 +24,30 @@ export const useRestTimer = () => {
   return context;
 };
 
-// Il componente Provider che conterrà tutta la logica
 export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [isAlarming, setIsAlarming] = useState(false); // NUOVO
   const [timeLeft, setTimeLeft] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null); // NUOVO: Ref per l'intervallo dell'allarme
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Effetto per inizializzare il contesto audio in modo sicuro e robusto
   useEffect(() => {
     const initAndUnlockAudio = () => {
       if (audioContextRef.current) return;
-
-      let context: AudioContext | undefined;
-
-      // Percorso 1: Browser moderni
-      if (window.AudioContext) {
-        try {
-          // ===================================================================
-          // CORREZIONE: Forniamo un argomento specifico come richiesto.
-          context = new window.AudioContext({ sampleRate: 44100 });
-          // ===================================================================
-        } catch (e) {
-          console.error("Impossibile creare AudioContext (moderno):", e);
-        }
-      } 
-      // Percorso 2: Fallback per browser legacy (es. Safari datato)
-      else if ((window as any).webkitAudioContext) {
-        try {
-          const LegacyAudioContext = (window as any).webkitAudioContext;
-          // Il costruttore legacy non accetta argomenti
-          // @ts-ignore
-          context = new LegacyAudioContext();
-        } catch (e) {
-          console.error("Impossibile creare webkitAudioContext (legacy):", e);
-        }
-      }
-
-      if (context) {
+      try {
+        const context = new window.AudioContext({ sampleRate: 44100 });
         audioContextRef.current = context;
-        // Sblocca il contesto per la riproduzione
         if (context.state === 'suspended') {
           context.resume();
         }
-      } else {
-        console.warn("Web Audio API non è supportata in questo browser.");
+      } catch (e) {
+        console.error("Creazione di AudioContext fallita:", e);
       }
     };
-
     document.addEventListener('click', initAndUnlockAudio, { once: true });
-
     return () => {
       audioContextRef.current?.close().catch(() => {});
     };
@@ -97,26 +69,58 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const stopTimer = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     setIsTimerActive(false);
   }, []);
 
+  // NUOVO: Funzione per fermare l'allarme
+  const stopAlarm = useCallback(() => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    setIsAlarming(false);
+  }, []);
+
+  // Effetto che gestisce la fine del timer
   useEffect(() => {
     if (isTimerActive && timeLeft <= 0) {
       stopTimer();
-      playSound();
+      setIsAlarming(true); // Invece di suonare una volta, attiva la fase di allarme
     }
-  }, [timeLeft, isTimerActive, stopTimer, playSound]);
+  }, [timeLeft, isTimerActive, stopTimer]);
+  
+  // NUOVO: Effetto che gestisce la logica dell'allarme
+  useEffect(() => {
+    if (isAlarming) {
+      // Fa partire il suono a ripetizione
+      alarmIntervalRef.current = setInterval(() => {
+        playSound();
+      }, 1200); // Ripete il suono ogni 1.2 secondi
+    } else {
+      // Se non è più in allarme, ferma tutto
+      stopAlarm();
+    }
+
+    // Funzione di pulizia per sicurezza
+    return () => {
+      if (alarmIntervalRef.current) {
+        clearInterval(alarmIntervalRef.current);
+      }
+    };
+  }, [isAlarming, playSound, stopAlarm]);
 
   const startTimer = (duration: number) => {
     stopTimer();
+    stopAlarm(); // Ferma qualsiasi allarme precedente quando parte un nuovo timer
     setInitialDuration(duration);
     setTimeLeft(duration);
     setIsTimerActive(true);
-    intervalRef.current = setInterval(() => {
+    setIsAlarming(false);
+    timerIntervalRef.current = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
   };
@@ -130,12 +134,14 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const value = {
     isTimerActive,
+    isAlarming, // NUOVO
     timeLeft,
     initialDuration,
     startTimer,
     stopTimer,
     addTime,
     playSound,
+    stopAlarm, // NUOVO
   };
 
   return <RestTimerContext.Provider value={value}>{children}</RestTimerContext.Provider>;

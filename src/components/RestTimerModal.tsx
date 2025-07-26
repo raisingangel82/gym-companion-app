@@ -1,51 +1,25 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { Fragment } from 'react';
 import { Transition } from '@headlessui/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useRestTimer } from '../contexts/RestTimerContext';
 import { Button } from './ui/Button';
-import { Volume2, VolumeX, Plus, BellOff } from 'lucide-react';
+import { Plus, BellOff } from 'lucide-react';
 
 export const RestTimerModal: React.FC = () => {
     const { activeTheme } = useTheme();
-    const { isTimerActive, timeLeft, initialDuration, stopTimer, addTime, playSound } = useRestTimer();
-    const [isMuted, setIsMuted] = useState(false);
-    const [isAlarmRinging, setIsAlarmRinging] = useState(false);
+    // 1. Recupera i nuovi stati e funzioni dal contesto, inclusi 'isAlarming' e 'stopAlarm'
+    const { isTimerActive, isAlarming, timeLeft, initialDuration, stopTimer, addTime, stopAlarm } = useRestTimer();
 
-    useEffect(() => {
-        if (timeLeft <= 0 && isTimerActive) {
-            setIsAlarmRinging(true);
-        }
-        if (!isTimerActive) {
-            setIsAlarmRinging(false);
-        }
-    }, [timeLeft, isTimerActive]);
-
-    useEffect(() => {
-        let alarmInterval: NodeJS.Timeout | null = null;
-        if (isAlarmRinging && !isMuted) {
-            playSound();
-            alarmInterval = setInterval(playSound, 1200);
-        }
-        return () => {
-            if (alarmInterval) {
-                clearInterval(alarmInterval);
-            }
-        };
-    }, [isAlarmRinging, isMuted, playSound]);
-
-    const handleSilenceAlarm = () => {
-        setIsAlarmRinging(false);
-        stopTimer();
-    };
-
+    // Calcoli per la UI
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     const progress = initialDuration > 0 ? (timeLeft / initialDuration) * 100 : 0;
 
+    // 2. Il modale ora è visibile se il timer è attivo OPPURE se l'allarme sta suonando
     return (
         <Transition
             as={Fragment}
-            show={isTimerActive}
+            show={isTimerActive || isAlarming}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
             enterTo="opacity-100"
@@ -54,33 +28,39 @@ export const RestTimerModal: React.FC = () => {
             leaveTo="opacity-0"
         >
             <div className="fixed inset-x-0 top-20 bottom-24 z-50 flex flex-col items-center justify-center text-white p-4 bg-black/80 backdrop-blur-md">
-                <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
-                    <div 
-                        className={`h-full ${activeTheme.bgClass}`}
-                        style={{ width: `${progress}%`, transition: 'width 1s linear' }}
-                    ></div>
-                </div>
+                {/* Barra di progresso (visibile solo durante il timer attivo) */}
+                {isTimerActive && (
+                    <div className="absolute top-0 left-0 w-full h-1 bg-white/10">
+                        <div 
+                            className={`h-full ${activeTheme.bgClass}`}
+                            style={{ width: `${progress}%`, transition: 'width 1s linear' }}
+                        ></div>
+                    </div>
+                )}
 
                 <div className="text-center">
-                    <p className="text-2xl text-gray-300 mb-2">{isAlarmRinging ? "Fine Riposo!" : "Riposo"}</p>
+                    {/* 3. Usa lo stato 'isAlarming' dal contesto per cambiare il testo */}
+                    <p className="text-2xl text-gray-300 mb-2">{isAlarming ? "Fine Riposo!" : "Riposo"}</p>
                     <p className="text-8xl md:text-9xl font-mono font-bold tracking-tighter">
                         {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
                     </p>
                 </div>
                 
                 <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-full px-4 flex items-center justify-center gap-4">
-                    {isAlarmRinging ? (
+                    {/* 4. Usa 'isAlarming' per mostrare i pulsanti corretti */}
+                    {isAlarming ? (
+                        // --- VISTA ALLARME ---
                         <>
                             <Button
-                                onClick={stopTimer} 
+                                onClick={stopAlarm} // Pulsante secondario per chiudere
                                 variant="secondary"
                                 className="bg-white/10 hover:bg-white/20 text-white rounded-full px-6 py-3"
-                                aria-label="Salta e chiudi timer"
+                                aria-label="Chiudi timer"
                             >
                                 Salta
                             </Button>
                             <Button
-                                onClick={handleSilenceAlarm}
+                                onClick={stopAlarm} // 5. Il pulsante principale ora chiama 'stopAlarm'
                                 className="bg-red-600 hover:bg-red-700 text-white rounded-full px-8 py-4 flex items-center font-bold text-lg scale-110 shadow-lg"
                                 aria-label="Tacita allarme e chiudi"
                             >
@@ -88,6 +68,7 @@ export const RestTimerModal: React.FC = () => {
                             </Button>
                         </>
                     ) : (
+                        // --- VISTA TIMER ATTIVO ---
                         <>
                             <Button
                                 onClick={() => addTime(15)}
@@ -104,14 +85,9 @@ export const RestTimerModal: React.FC = () => {
                             >
                                 Salta
                             </Button>
-                             <Button
-                                onClick={() => setIsMuted(!isMuted)}
-                                variant="secondary"
-                                className="bg-white/10 hover:bg-white/20 text-white rounded-full p-4"
-                                aria-label={isMuted ? "Riattiva suono" : "Disattiva suono"}
-                            >
-                                {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                            </Button>
+                            {/* Il pulsante Mute è stato rimosso per semplificare e non entrare in conflitto
+                                con la logica del suono gestita ora interamente dal contesto.
+                                Può essere re-implementato in futuro modificando il contesto. */}
                         </>
                     )}
                 </div>
