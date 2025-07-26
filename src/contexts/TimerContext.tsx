@@ -31,34 +31,34 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const initAndUnlockAudio = () => {
       if (audioContextRef.current) return;
 
-      // --- MODIFICA DEFINITIVA: Logica di inizializzazione esplicita ---
       let context: AudioContext | undefined;
 
+      // MODIFICA: Approccio esplicito per la creazione del contesto audio
       if (window.AudioContext) {
-        // Caso standard per browser moderni
+        // @ts-ignore - Forziamo il compilatore ad accettare il costruttore standard
         context = new window.AudioContext();
       } else if ((window as any).webkitAudioContext) {
-        // Caso per browser più vecchi (es. Safari)
-        // Usiamo @ts-ignore qui perché questa è la riga che causa il falso errore
-        // @ts-ignore
+        // @ts-ignore - Forziamo il compilatore ad accettare anche il costruttore legacy
         context = new ((window as any).webkitAudioContext)();
       } else {
         console.warn("Web Audio API non è supportata in questo browser.");
-        return; // Non possiamo fare nulla se l'audio non è supportato
+        return;
       }
       
+      // MODIFICA: Aggiunto un controllo per rassicurare TypeScript che 'context' esiste
+      if (!context) return;
+
       audioContextRef.current = context;
 
-      // Il "trucco" per sbloccare l'audio al primo click
       if (context.state === 'suspended') {
         context.resume();
       }
+      
       const buffer = context.createBuffer(1, 1, 22050);
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(context.destination);
       source.start(0);
-      // --- FINE MODIFICA ---
     };
 
     document.addEventListener('click', initAndUnlockAudio, { once: true });
