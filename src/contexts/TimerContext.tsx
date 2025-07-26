@@ -29,25 +29,38 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const initAndUnlockAudio = () => {
-      if (!audioContextRef.current) {
-        // MODIFICA: Corretto il refuso da 'Audio-content' a 'AudioContext'
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) {
-            const context = new AudioContextClass();
-            audioContextRef.current = context;
-            
-            const buffer = context.createBuffer(1, 1, 22050);
-            const source = context.createBufferSource();
-            source.buffer = buffer;
-            source.connect(context.destination);
-            source.start(0);
+      if (audioContextRef.current) return;
 
-            if (context.state === 'suspended') {
-              context.resume();
-            }
-        }
+      // --- MODIFICA DEFINITIVA: Logica di inizializzazione esplicita ---
+      let context: AudioContext | undefined;
+
+      if (window.AudioContext) {
+        // Caso standard per browser moderni
+        context = new window.AudioContext();
+      } else if ((window as any).webkitAudioContext) {
+        // Caso per browser più vecchi (es. Safari)
+        // Usiamo @ts-ignore qui perché questa è la riga che causa il falso errore
+        // @ts-ignore
+        context = new ((window as any).webkitAudioContext)();
+      } else {
+        console.warn("Web Audio API non è supportata in questo browser.");
+        return; // Non possiamo fare nulla se l'audio non è supportato
       }
+      
+      audioContextRef.current = context;
+
+      // Il "trucco" per sbloccare l'audio al primo click
+      if (context.state === 'suspended') {
+        context.resume();
+      }
+      const buffer = context.createBuffer(1, 1, 22050);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.start(0);
+      // --- FINE MODIFICA ---
     };
+
     document.addEventListener('click', initAndUnlockAudio, { once: true });
 
     return () => {
