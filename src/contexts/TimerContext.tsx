@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 
+// Rimosso 'playSound' dal tipo
 interface TimerContextType {
   isTimerActive: boolean;
   timeLeft: number;
@@ -7,7 +8,6 @@ interface TimerContextType {
   startTimer: (duration: number) => void;
   stopTimer: () => void;
   addTime: (seconds: number) => void;
-  playSound: () => void;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -25,64 +25,8 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [timeLeft, setTimeLeft] = useState(0);
   const [initialDuration, setInitialDuration] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext>();
 
-  useEffect(() => {
-    const initAndUnlockAudio = () => {
-      if (audioContextRef.current) return;
-
-      let context: AudioContext | undefined;
-
-      // MODIFICA: Approccio esplicito per la creazione del contesto audio
-      if (window.AudioContext) {
-        // @ts-ignore - Forziamo il compilatore ad accettare il costruttore standard
-        context = new window.AudioContext();
-      } else if ((window as any).webkitAudioContext) {
-        // @ts-ignore - Forziamo il compilatore ad accettare anche il costruttore legacy
-        context = new ((window as any).webkitAudioContext)();
-      } else {
-        console.warn("Web Audio API non è supportata in questo browser.");
-        return;
-      }
-      
-      // MODIFICA: Aggiunto un controllo per rassicurare TypeScript che 'context' esiste
-      if (!context) return;
-
-      audioContextRef.current = context;
-
-      if (context.state === 'suspended') {
-        context.resume();
-      }
-      
-      const buffer = context.createBuffer(1, 1, 22050);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-      source.start(0);
-    };
-
-    document.addEventListener('click', initAndUnlockAudio, { once: true });
-
-    return () => {
-      audioContextRef.current?.close().catch(() => {});
-    };
-  }, []);
-
-  const playSound = useCallback(() => {
-    const audioContext = audioContextRef.current;
-    if (!audioContext || audioContext.state !== 'running') return;
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.5);
-  }, []);
+  // Tutta la logica audio è stata rimossa da questo file
 
   const clearTimerInterval = () => {
     if (intervalRef.current) {
@@ -125,7 +69,6 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     startTimer,
     stopTimer,
     addTime,
-    playSound,
   };
 
   return <TimerContext.Provider value={value}>{children}</TimerContext.Provider>;
