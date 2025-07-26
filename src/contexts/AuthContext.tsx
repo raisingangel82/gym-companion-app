@@ -6,12 +6,13 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  type User as FirebaseUser,
+  // MODIFICA: 'User as FirebaseUser' rimosso perché non utilizzato
 } from 'firebase/auth';
-// MODIFICA: Import aggiuntivi da Firestore, incluso 'setDoc'
-import { auth, db } from '../services/firebase';
-import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
-import { getUserProfile } from '../services/firestore';
+// MODIFICA: 'updateDoc' rimosso perché usiamo 'setDoc'. 'db' importato per le nuove funzioni.
+import { auth, db } from '../services/firebase'; 
+// MODIFICA: Aggiunto 'setDoc'
+import { doc, onSnapshot, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore'; 
+// MODIFICA: 'getUserProfile' rimosso perché usiamo 'onSnapshot'
 import type { AppUser, FavoritePlaylist } from '../types';
 
 interface AuthContextType {
@@ -62,12 +63,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return signInWithPopup(auth, provider);
   };
 
-  // --- FUNZIONI CORRETTE PER GESTIRE LE PLAYLIST PREFERITE ---
-
   const addFavoritePlaylist = async (playlist: FavoritePlaylist) => {
     if (!user) throw new Error("Utente non autenticato.");
     const userDocRef = doc(db, 'users', user.uid);
-    // MODIFICA: Usiamo setDoc con { merge: true } per creare il documento se non esiste
     await setDoc(userDocRef, {
       favoritePlaylists: arrayUnion(playlist)
     }, { merge: true });
@@ -76,13 +74,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const removeFavoritePlaylist = async (playlist: FavoritePlaylist) => {
     if (!user) throw new Error("Utente non autenticato.");
     const userDocRef = doc(db, 'users', user.uid);
-    // MODIFICA: Usiamo setDoc anche qui per coerenza, sebbene updateDoc funzionerebbe
-    // se siamo sicuri che il documento esista già. setDoc è più sicuro.
     await setDoc(userDocRef, {
       favoritePlaylists: arrayRemove(playlist)
     }, { merge: true });
   };
-  // --- FINE MODIFICHE ---
 
   const value = { 
     user, 

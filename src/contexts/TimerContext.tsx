@@ -27,32 +27,31 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext>();
 
-  // MODIFICA CHIAVE: Logica di "sblocco" dell'audio
   useEffect(() => {
     const initAndUnlockAudio = () => {
       if (!audioContextRef.current) {
-        const context = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioContextRef.current = context;
-        
-        // Il "trucco": riproduci un buffer silenzioso per attivare il contesto
-        // Questo è necessario perché il contesto audio parte in stato 'suspended'
-        const buffer = context.createBuffer(1, 1, 22050);
-        const source = context.createBufferSource();
-        source.buffer = buffer;
-        source.connect(context.destination);
-        source.start(0);
+        // MODIFICA: Riscritto per essere più chiaro a TypeScript e risolvere l'errore TS2554
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+            const context = new AudioContextClass();
+            audioContextRef.current = context;
+            
+            const buffer = context.createBuffer(1, 1, 22050);
+            const source = context.createBufferSource();
+            source.buffer = buffer;
+            source.connect(context.destination);
+            source.start(0);
 
-        // Ora il contesto è 'running' e può riprodurre suoni in seguito
-        if (context.state === 'suspended') {
-          context.resume();
+            if (context.state === 'suspended') {
+              context.resume();
+            }
         }
       }
     };
-    // Aggiungiamo l'evento al primo click, poi lo rimuoviamo
     document.addEventListener('click', initAndUnlockAudio, { once: true });
 
     return () => {
-      document.removeEventListener('click', initAndUnlockAudio);
+      // Non è necessario rimuovere l'event listener con `once: true`
       audioContextRef.current?.close().catch(() => {});
     };
   }, []);
