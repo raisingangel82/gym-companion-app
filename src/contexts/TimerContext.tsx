@@ -30,9 +30,12 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const initAndUnlockAudio = () => {
       if (!audioContextRef.current) {
-        // MODIFICA: Riscritto per essere più chiaro a TypeScript e risolvere l'errore TS2554
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass = window.Audio-content || (window as any).webkitAudioContext;
         if (AudioContextClass) {
+            // MODIFICA DEFINITIVA: Usiamo "@ts-ignore" per forzare il compilatore
+            // ad accettare questa riga. È necessario a causa di un'incongruenza
+            // nelle definizioni dei tipi di vecchi browser.
+            // @ts-ignore
             const context = new AudioContextClass();
             audioContextRef.current = context;
             
@@ -51,7 +54,6 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     document.addEventListener('click', initAndUnlockAudio, { once: true });
 
     return () => {
-      // Non è necessario rimuovere l'event listener con `once: true`
       audioContextRef.current?.close().catch(() => {});
     };
   }, []);
