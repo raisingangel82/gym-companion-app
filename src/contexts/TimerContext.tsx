@@ -28,36 +28,41 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const audioContextRef = useRef<AudioContext>();
 
   useEffect(() => {
-    // Questa funzione crea e "sblocca" il contesto audio al primo
-    // tocco dell'utente in qualsiasi punto dell'app.
+    // Inizializza e sblocca il contesto audio al primo tocco dell'utente.
     const initAndUnlockAudio = () => {
+      // Se il contesto è già stato creato, non fare nulla.
       if (audioContextRef.current) return;
 
-      // Logica esplicita per la massima compatibilità e per superare gli errori di build
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) {
-        console.warn("Web Audio API non è supportata in questo browser.");
-        return;
-      }
-      
-      // @ts-ignore - Questa istruzione forza il compilatore ad accettare il costruttore
-      // che generava l'errore, risolvendo il problema di build in modo definitivo.
-      const context = new AudioContextClass();
-      audioContextRef.current = context;
+      // Verifica se l'API moderna è supportata.
+      if (window.AudioContext) {
+        try {
+          // Crea il contesto audio passando un oggetto vuoto {}
+          // per risolvere l'errore di compilazione su Vercel.
+          const context = new window.AudioContext({});
+          audioContextRef.current = context;
 
-      // "Sblocchiamo" il contesto riproducendo un suono silenzioso
-      if (context.state === 'suspended') {
-        context.resume();
+          // "Sblocca" il contesto per la riproduzione automatica.
+          if (context.state === 'suspended') {
+            context.resume();
+          }
+          // Riproduci un buffer silenzioso per attivare l'audio.
+          const buffer = context.createBuffer(1, 1, 22050);
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(context.destination);
+          source.start(0);
+
+        } catch (e) {
+          console.error("Creazione di AudioContext fallita:", e);
+        }
+      } else {
+        console.warn("Web Audio API non è supportata in questo browser.");
       }
-      const buffer = context.createBuffer(1, 1, 22050);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-      source.start(0);
     };
 
     document.addEventListener('click', initAndUnlockAudio, { once: true });
 
+    // Pulisci il contesto audio quando il componente viene smontato.
     return () => {
       audioContextRef.current?.close().catch(() => {});
     };
@@ -69,12 +74,16 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
+
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // Frequenza del "beep"
+
     gainNode.gain.setValueAtTime(1, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
+
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
+
     oscillator.start();
     oscillator.stop(audioContext.currentTime + 0.5);
   }, []);
@@ -93,15 +102,17 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     if (isTimerActive && timeLeft <= 0) {
-      clearTimerInterval();
+      stopTimer();
+      // Potresti voler chiamare playSound() qui quando il timer raggiunge lo zero.
     }
-  }, [timeLeft, isTimerActive]);
+  }, [timeLeft, isTimerActive, stopTimer]);
 
   const startTimer = (duration: number) => {
-    stopTimer();
+    stopTimer(); // Ferma qualsiasi timer precedente
     setInitialDuration(duration);
     setTimeLeft(duration);
     setIsTimerActive(true);
+
     intervalRef.current = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
@@ -110,6 +121,7 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addTime = (seconds: number) => {
     if (isTimerActive && timeLeft > 0) {
       setTimeLeft(prev => prev + seconds);
+      setInitialDuration(prev => prev + seconds); // Aggiorna anche la durata iniziale se necessario
     }
   };
 
