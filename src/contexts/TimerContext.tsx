@@ -30,12 +30,9 @@ export const TimerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const initAndUnlockAudio = () => {
       if (!audioContextRef.current) {
-        const AudioContextClass = window.Audio-content || (window as any).webkitAudioContext;
+        // MODIFICA: Corretto il refuso da 'Audio-content' a 'AudioContext'
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
-            // MODIFICA DEFINITIVA: Usiamo "@ts-ignore" per forzare il compilatore
-            // ad accettare questa riga. È necessario a causa di un'incongruenza
-            // nelle definizioni dei tipi di vecchi browser.
-            // @ts-ignore
             const context = new AudioContextClass();
             audioContextRef.current = context;
             
