@@ -32,6 +32,9 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  // LOG: Mostra lo stato ad ogni render del contesto
+  console.log(`%c[CONTEXT RENDER] isTimerActive: ${isTimerActive}, isAlarming: ${isAlarming}, timeLeft: ${timeLeft}`, 'color: gray');
+
   const playSound = useCallback(() => {
     const audioContext = audioContextRef.current;
     if (!audioContext || audioContext.state !== 'running') return;
@@ -60,17 +63,13 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     document.addEventListener('click', initAndUnlockAudio, { once: true });
 
-    // ===================================================================
-    // ECCO LA CORREZIONE
-    // Aggiungendo le parentesi graffe {}, la funzione non restituisce più
-    // la Promise generata da .close(), risolvendo l'errore.
-    // ===================================================================
     return () => {
       audioContextRef.current?.close().catch(() => {});
     };
   }, []);
 
   const stopTimer = useCallback(() => {
+    console.log('%c[ACTION] stopTimer called', 'color: red; font-weight: bold;');
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -79,29 +78,36 @@ export const RestTimerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const stopAlarm = useCallback(() => {
+    console.log('%c[ACTION] stopAlarm called', 'color: red; font-weight: bold;');
     setIsAlarming(false);
   }, []);
 
   useEffect(() => {
     if (isTimerActive && timeLeft <= 0) {
+      console.log('%c[EFFECT] Timer finished. Stopping timer and starting alarm.', 'color: blue; font-weight: bold;');
       stopTimer();
       setIsAlarming(true);
     }
   }, [timeLeft, isTimerActive, stopTimer]);
   
   useEffect(() => {
+    console.log(`%c[EFFECT] Alarm effect runs. isAlarming: ${isAlarming}`, 'color: orange; font-weight: bold;');
     if (isAlarming) {
+      console.log('%c-> Setting up alarm interval...', 'color: orange;');
       const intervalId = setInterval(() => {
+        console.log('%c--> playSound() from interval', 'color: magenta');
         playSound();
       }, 1200);
 
       return () => {
+        console.log('%c-> Cleaning up alarm interval.', 'color: orange;');
         clearInterval(intervalId);
       };
     }
   }, [isAlarming, playSound]);
 
   const startTimer = (duration: number) => {
+    console.log(`%c[ACTION] startTimer called with duration: ${duration}`, 'color: green; font-weight: bold;');
     stopTimer();
     stopAlarm();
     setInitialDuration(duration);

@@ -9,18 +9,16 @@ export const RestTimerModal: React.FC = () => {
     const { activeTheme } = useTheme();
     const { isTimerActive, isAlarming, timeLeft, initialDuration, stopTimer, addTime, stopAlarm } = useRestTimer();
 
+    // LOG: Mostra lo stato ricevuto dal contesto ad ogni render del modale
+    console.log(`%c[MODAL RENDER] isTimerActive: ${isTimerActive}, isAlarming: ${isAlarming}`, 'color: purple; font-weight: bold');
+
     const minutes = Math.floor(timeLeft / 60);
     const seconds = timeLeft % 60;
     const progress = initialDuration > 0 ? (timeLeft / initialDuration) * 100 : 0;
-
+    
     return (
         <Transition
             as={Fragment}
-            // ===================================================================
-            // ECCO LA CORREZIONE CHIAVE
-            // La visibilità deve essere controllata direttamente dalla prop 'show'.
-            // Deve essere true se il timer è attivo OPPURE se l'allarme sta suonando.
-            // ===================================================================
             show={isTimerActive || isAlarming}
             enter="transition-opacity duration-300"
             enterFrom="opacity-0"
@@ -68,10 +66,7 @@ export const RestTimerModal: React.FC = () => {
                                 <Plus size={20} className="mr-1"/> 15s
                             </Button>
                             <Button
-                                onClick={() => {
-                                  stopTimer();
-                                  // In futuro potresti voler chiamare anche stopAlarm() qui se vuoi che "Salta" spenga tutto subito
-                                }}
+                                onClick={stopTimer}
                                 className={`px-8 py-4 text-white font-semibold rounded-full ${activeTheme.bgClass} hover:opacity-90 scale-110`}
                                 aria-label="Salta riposo"
                             >

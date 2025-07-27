@@ -35,8 +35,8 @@ function MainAppLayout() {
   const { user, logout } = useAuth();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   
-  // MODIFICA: Otteniamo lo stato del timer e la posizione corrente
-  const { isTimerActive } = useRestTimer();
+  // Recupera entrambi gli stati dal contesto
+  const { isTimerActive, isAlarming } = useRestTimer();
   const currentPath = location.pathname;
 
   const handleTogglePlay = useCallback(() => {
@@ -121,8 +121,11 @@ function MainAppLayout() {
         initialData={user}
       />
       
-      {/* MODIFICA: Il timer viene renderizzato solo se è attivo E se siamo sulla pagina Workout */}
-      {isTimerActive && currentPath === '/' && <RestTimerModal />}
+      {/* =================================================================== */}
+      {/* ECCO LA CORREZIONE FINALE E DEFINITIVA */}
+      {/* Ora il modale viene mostrato se il timer è attivo OPPURE se l'allarme sta suonando */}
+      {/* =================================================================== */}
+      {(isTimerActive || isAlarming) && currentPath === '/' && <RestTimerModal />}
     </div>
   );
 }
