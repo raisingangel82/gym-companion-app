@@ -2,8 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-// NUOVA ICONA: Aggiungiamo Download per l'export
-import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download } from 'lucide-react';
+// NUOVE ICONE: Aggiungiamo Wand2 per l'ottimizzazione e Archive per l'export di massa
+import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Wand2, Archive } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -56,40 +56,51 @@ export const ManagePage: React.FC = () => {
     }
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
+  const handleDeleteWithConfirmation = (workoutId: string, workoutName: string) => {
+    const isConfirmed = window.confirm(`Sei sicuro di voler eliminare la scheda "${workoutName}"? Questa azione è irreversibile.`);
+    if (isConfirmed) {
+      deleteWorkout(workoutId);
+    }
   };
 
-  // NUOVA FUNZIONE: Gestisce l'export della scheda in JSON
   const handleExportWorkout = (workout: Workout) => {
-    // 1. Rimuoviamo l'ID per un export più pulito, opzionale
     const { id, ...workoutToExport } = workout;
-    
-    // 2. Convertiamo l'oggetto in una stringa JSON ben formattata
     const jsonString = JSON.stringify(workoutToExport, null, 2);
-    
-    // 3. Creiamo un "Blob", ovvero un oggetto simile a un file
     const blob = new Blob([jsonString], { type: 'application/json' });
-    
-    // 4. Creiamo un URL temporaneo per il nostro file
     const url = URL.createObjectURL(blob);
-    
-    // 5. Creiamo un link di download invisibile
     const link = document.createElement('a');
     link.href = url;
-    // Creiamo un nome file "pulito"
     const fileName = `${workout.name.toLowerCase().replace(/\s+/g, '-')}.json`;
     link.download = fileName;
-    
-    // 6. Simuliamo il click per avviare il download e poi rimuoviamo il link
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    // 7. Rilasciamo l'URL temporaneo per liberare memoria
     URL.revokeObjectURL(url);
   };
 
+  // NUOVA FUNZIONE: Esporta tutte le schede in un unico file JSON
+  const handleExportAllWorkouts = () => {
+    if (workouts.length === 0) {
+      alert("Non ci sono schede da esportare.");
+      return;
+    }
+    // Rimuoviamo gli ID per un export più pulito
+    const workoutsToExport = workouts.map(({ id, ...rest }) => rest);
+    const jsonString = JSON.stringify(workoutsToExport, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'gym-companion-backup-all.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -173,6 +184,17 @@ export const ManagePage: React.FC = () => {
     }
   };
 
+  // NUOVA FUNZIONE: Placeholder per l'ottimizzazione AI
+  const handleOptimizeAIClick = () => {
+    if (user?.plan === 'Pro') {
+      // Qui andrà la logica per chiamare la funzione AI di ottimizzazione
+      alert("Funzionalità di ottimizzazione AI non ancora implementata.");
+    } else {
+      setProFeatureName('Ottimizzazione Scheda con AI');
+      setProModalOpen(true);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       <Card>
@@ -186,6 +208,7 @@ export const ManagePage: React.FC = () => {
       </Card>
       <Card>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette /> Impostazioni</h2>
+        {/* ... il resto delle impostazioni rimane invariato ... */}
         <div className="space-y-4 divide-y divide-gray-200 dark:divide-gray-700">
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Modalità</label>
@@ -238,11 +261,14 @@ export const ManagePage: React.FC = () => {
         </header>
         <Card className="mb-4">
           <h3 className="font-semibold mb-2 flex items-center gap-2"><Info size={18} /> Azioni Rapide</h3>
-          <div className="flex gap-2 w-full mt-2">
+          {/* MODIFICA: La griglia ora ha 3 colonne per i 3 bottoni */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full mt-2">
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileImport} className="hidden" />
-            <Button onClick={handleImportClick} variant="secondary" className="flex-1" disabled={isGenerating}><Upload size={16} /> Importa da File</Button>
-            <Button onClick={handleGenerateAIClick} className={`flex-1 text-white ${activeTheme.bgClass}`} disabled={isGenerating}>
-              <Sparkles size={16} /> {isGenerating ? 'Creazione in corso...' : 'Crea con AI'}
+            <Button onClick={handleImportClick} variant="secondary" disabled={isGenerating}><Upload size={16} /> Importa</Button>
+            {/* NUOVO BOTTONE ESPORTA TUTTO */}
+            <Button onClick={handleExportAllWorkouts} variant="secondary" disabled={workouts.length === 0}><Archive size={16} /> Esporta Tutto</Button>
+            <Button onClick={handleGenerateAIClick} className={`text-white ${activeTheme.bgClass}`} disabled={isGenerating}>
+              <Sparkles size={16} /> {isGenerating ? 'Creazione...' : 'Crea con AI'}
             </Button>
           </div>
         </Card>
@@ -252,10 +278,11 @@ export const ManagePage: React.FC = () => {
             <div className="flex items-center justify-between mt-4 gap-2">
               <Button onClick={() => setActiveWorkout(workout.id)} variant={activeWorkout?.id === workout.id ? "default" : "secondary"} className={`flex-1 ${activeWorkout?.id === workout.id ? activeTheme.bgClass + ' text-white' : ''}`}><CheckCircle size={16}/> {activeWorkout?.id === workout.id ? 'Attiva' : 'Seleziona'}</Button>
               <div className="flex">
-                {/* NUOVO PULSANTE EXPORT */}
+                {/* BOTTONE OTTIMIZZA AI RIPRISTINATO */}
+                <button onClick={handleOptimizeAIClick} className="p-2 text-gray-500 hover:text-purple-500" title="Ottimizza con AI"><Wand2 size={18} /></button>
                 <button onClick={() => handleExportWorkout(workout)} className="p-2 text-gray-500 hover:text-green-500" title="Esporta in JSON"><Download size={18} /></button>
                 <button onClick={() => handleOpenModal(workout)} className="p-2 text-gray-500 hover:text-blue-500" title="Modifica"><Edit size={18} /></button>
-                <button onClick={() => deleteWorkout(workout.id)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>
+                <button onClick={() => handleDeleteWithConfirmation(workout.id, workout.name)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>
               </div>
             </div>
           </Card>
