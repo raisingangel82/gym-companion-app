@@ -63,6 +63,7 @@ export interface WorkoutData {
   exercises: Exercise[];
   createdAt: Date;
   history: WorkoutSession[];
+  _lastUpdated?: Date; // <-- AGGIUNGI QUESTA RIGA
 }
 
 /** Definisce una scheda di allenamento con il suo ID del database. */
