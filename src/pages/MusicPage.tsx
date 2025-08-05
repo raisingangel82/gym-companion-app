@@ -27,10 +27,10 @@ const getYouTubePlaylistId = (url: string): string | null => {
 export const MusicPage: React.FC = () => {
   const { currentTrack, playlistId, playTrack, playPlaylist, nextTrack, previousTrack } = useMusic();
   const { activeTheme } = useTheme();
-  const { user, addFavoritePlaylist, removeFavoritePlaylist } = useAuth(); // Aggiunto removeFavoritePlaylist
+  const { user, addFavoritePlaylist, removeFavoritePlaylist } = useAuth();
   const [url, setUrl] = useState('');
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
-  const [isUploaderOpen, setIsUploaderOpen] = useState(false); // Stato per la sezione "a soffietto"
+  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
   const handleUrlSubmit = () => {
     if (!url) return;
@@ -81,7 +81,6 @@ export const MusicPage: React.FC = () => {
 
   return (
     <>
-      {/* Contenitore principale per lo scroll, con padding in basso per far spazio ai controlli sticky */}
       <div className="container mx-auto p-4 space-y-6 pb-32">
         <Card className="w-full max-w-lg mx-auto flex flex-col justify-center overflow-hidden relative text-white bg-black min-h-[35vh]">
           {isMusicActive ? (
@@ -102,7 +101,6 @@ export const MusicPage: React.FC = () => {
           )}
         </Card>
 
-        {/* MODIFICA: Card Playlist Preferite con layout a colonna */}
         <Card className="w-full max-w-lg mx-auto">
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Playlist Preferite</h2>
@@ -128,7 +126,6 @@ export const MusicPage: React.FC = () => {
             </div>
         </Card>
 
-        {/* MODIFICA: Card Carica Musica "a soffietto" */}
         <Card className="w-full max-w-lg mx-auto">
           <button onClick={() => setIsUploaderOpen(!isUploaderOpen)} className="w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -146,7 +143,8 @@ export const MusicPage: React.FC = () => {
                   Carica
                 </Button>
               </div>
-               <a href="http://googleusercontent.com/youtube.com/5" target="_blank" rel="noopener noreferrer" className="block">
+               {/* MODIFICA: Corretto l'URL di YouTube */}
+               <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="block">
                   <Button variant="outline" className="w-full dark:border-red-500/50 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400">
                       <YoutubeIcon size={20} className="mr-2" /> Apri YouTube
                   </Button>
@@ -156,7 +154,6 @@ export const MusicPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* MODIFICA: Controlli Playlist Fissi (Sticky) */}
       {playlistId && (
         <div className="fixed bottom-16 left-0 right-0 z-30">
             <div className="container mx-auto max-w-lg px-4">

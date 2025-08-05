@@ -29,13 +29,23 @@ import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
 function MainAppLayout() {
-  const { isPlaying, setIsPlaying, videoId, playlistId, playerRef, setCurrentTrack, decorativePlayerRef } = useMusic();
+  // MODIFICA: Recuperiamo le nuove funzioni di gestione dal contesto musicale
+  const { 
+    isPlaying, 
+    setIsPlaying, 
+    videoId, 
+    playlistId, 
+    playerRef, 
+    decorativePlayerRef,
+    handlePlayerStateChange, // <-- NUOVO
+    handlePlayerError        // <-- NUOVO
+  } = useMusic();
+
   const { registeredAction } = usePageAction();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   
-  // Recupera entrambi gli stati dal contesto
   const { isTimerActive, isAlarming } = useRestTimer();
   const currentPath = location.pathname;
 
@@ -83,12 +93,8 @@ function MainAppLayout() {
     },
   };
 
-  const handlePlayerStateChange = (event: any) => {
-    if (event.data === 1 && playerRef.current) {
-      const trackData = playerRef.current.getVideoData();
-      setCurrentTrack({ id: trackData.video_id, title: trackData.title });
-    }
-  };
+  // MODIFICA: La vecchia funzione 'handlePlayerStateChange' locale è stata rimossa
+  // perché ora la logica è gestita centralmente nel MusicContext.
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -110,7 +116,9 @@ function MainAppLayout() {
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onEnd={() => setIsPlaying(false)}
+            // MODIFICA: Colleghiamo i nuovi gestori di eventi dal contesto
             onStateChange={handlePlayerStateChange}
+            onError={handlePlayerError}
           />
         </div>
       )}
@@ -121,10 +129,6 @@ function MainAppLayout() {
         initialData={user}
       />
       
-      {/* =================================================================== */}
-      {/* ECCO LA CORREZIONE FINALE E DEFINITIVA */}
-      {/* Ora il modale viene mostrato se il timer è attivo OPPURE se l'allarme sta suonando */}
-      {/* =================================================================== */}
       {(isTimerActive || isAlarming) && currentPath === '/' && <RestTimerModal />}
     </div>
   );

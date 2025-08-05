@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from 'react';
 
 interface YouTubePlayer {
   playVideo: () => void;
@@ -7,6 +7,12 @@ interface YouTubePlayer {
   previousVideo: () => void;
   getPlayerState: () => number;
   getVideoData: () => { title: string; video_id: string };
+}
+
+// Interfaccia per gli eventi del player
+interface PlayerEvent {
+  target: YouTubePlayer;
+  data: number;
 }
 
 interface MusicContextType {
@@ -23,6 +29,9 @@ interface MusicContextType {
   decorativePlayerRef: React.MutableRefObject<YouTubePlayer | null>;
   nextTrack: () => void;
   previousTrack: () => void;
+  // NUOVE FUNZIONI ESPORTATE
+  handlePlayerStateChange: (event: PlayerEvent) => void;
+  handlePlayerError: (event: { data: number }) => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -36,7 +45,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const decorativePlayerRef = useRef<YouTubePlayer | null>(null);
 
   const playTrack = (id: string) => {
-    // Se si sta ricaricando la stessa traccia, forziamo il reset
     if (videoId === id) {
       setVideoId(null);
       setTimeout(() => setVideoId(id), 0);
@@ -47,25 +55,18 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setIsPlaying(true);
   };
 
-  // --- MODIFICA CHIAVE ALLA LOGICA ---
   const playPlaylist = (id: string) => {
-    setVideoId(null); // Ferma qualsiasi traccia singola
+    setVideoId(null);
     setIsPlaying(true);
-
-    // Se stiamo tentando di ricaricare la STESSA playlist, dobbiamo forzare un re-render.
-    // Lo facciamo impostando l'ID a null e poi di nuovo all'ID corretto subito dopo.
-    // Il setTimeout(..., 0) assicura che React processi i due aggiornamenti separatamente.
     if (playlistId === id) {
       setPlaylistId(null);
       setTimeout(() => {
         setPlaylistId(id);
       }, 0);
     } else {
-      // Se è una playlist nuova, la impostiamo normalmente.
       setPlaylistId(id);
     }
   };
-  // --- FINE MODIFICA ---
   
   const stopMusic = () => {
     setVideoId(null);
@@ -74,8 +75,42 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setCurrentTrack({ id: null, title: null });
   };
 
-  const nextTrack = () => playerRef.current?.nextVideo();
+  const nextTrack = useCallback(() => {
+    if (playerRef.current) {
+      playerRef.current.nextVideo();
+    }
+  }, []);
+
   const previousTrack = () => playerRef.current?.previousVideo();
+
+  // NUOVA FUNZIONE: Gestisce gli errori del player
+  // Se il player va in errore (spesso per un video non disponibile o un problema con l'ad),
+  // semplicemente salta alla traccia successiva.
+  const handlePlayerError = useCallback((event: { data: number }) => {
+    console.error(`Youtubeer Error: ${event.data}`);
+    if (playlistId) {
+      console.log("Player in errore, tento di passare alla traccia successiva...");
+      nextTrack();
+    }
+  }, [playlistId, nextTrack]);
+
+  // MODIFICA: La logica di gestione dello stato è ora centralizzata qui
+  const handlePlayerStateChange = useCallback((event: PlayerEvent) => {
+    const playerState = event.data;
+
+    // Stato 0 = Canzone finita. Se siamo in una playlist, andiamo alla successiva.
+    if (playerState === 0 && playlistId) {
+      nextTrack();
+    }
+    // Stato 1 = In Riproduzione. Aggiorniamo le info della traccia corrente.
+    else if (playerState === 1) {
+      const trackData = event.target.getVideoData();
+      if (trackData.video_id) {
+        setCurrentTrack({ id: trackData.video_id, title: trackData.title });
+      }
+    }
+  }, [playlistId, nextTrack]);
+
 
   const value = { 
     videoId, 
@@ -90,7 +125,10 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     playerRef, 
     decorativePlayerRef,
     nextTrack,
-    previousTrack
+    previousTrack,
+    // Esportiamo le nuove funzioni
+    handlePlayerStateChange,
+    handlePlayerError
   };
 
   return (
