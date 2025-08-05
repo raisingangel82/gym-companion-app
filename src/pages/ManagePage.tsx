@@ -1,9 +1,8 @@
-// Test per l'aggiornamento PWA
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-// NUOVE ICONE: Aggiungiamo Wand2 per l'ottimizzazione e Archive per l'export di massa
-import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Wand2, Archive } from 'lucide-react';
+// MODIFICA: Rimuoviamo l'icona Wand2 non più utilizzata
+import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Archive } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -78,13 +77,11 @@ export const ManagePage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // NUOVA FUNZIONE: Esporta tutte le schede in un unico file JSON
   const handleExportAllWorkouts = () => {
     if (workouts.length === 0) {
       alert("Non ci sono schede da esportare.");
       return;
     }
-    // Rimuoviamo gli ID per un export più pulito
     const workoutsToExport = workouts.map(({ id, ...rest }) => rest);
     const jsonString = JSON.stringify(workoutsToExport, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
@@ -184,16 +181,7 @@ export const ManagePage: React.FC = () => {
     }
   };
 
-  // NUOVA FUNZIONE: Placeholder per l'ottimizzazione AI
-  const handleOptimizeAIClick = () => {
-    if (user?.plan === 'Pro') {
-      // Qui andrà la logica per chiamare la funzione AI di ottimizzazione
-      alert("Funzionalità di ottimizzazione AI non ancora implementata.");
-    } else {
-      setProFeatureName('Ottimizzazione Scheda con AI');
-      setProModalOpen(true);
-    }
-  };
+  // MODIFICA: La funzione handleOptimizeAIClick non è più necessaria e viene rimossa.
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -208,7 +196,6 @@ export const ManagePage: React.FC = () => {
       </Card>
       <Card>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette /> Impostazioni</h2>
-        {/* ... il resto delle impostazioni rimane invariato ... */}
         <div className="space-y-4 divide-y divide-gray-200 dark:divide-gray-700">
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Modalità</label>
@@ -261,11 +248,9 @@ export const ManagePage: React.FC = () => {
         </header>
         <Card className="mb-4">
           <h3 className="font-semibold mb-2 flex items-center gap-2"><Info size={18} /> Azioni Rapide</h3>
-          {/* MODIFICA: La griglia ora ha 3 colonne per i 3 bottoni */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full mt-2">
             <input type="file" accept=".json" ref={fileInputRef} onChange={handleFileImport} className="hidden" />
             <Button onClick={handleImportClick} variant="secondary" disabled={isGenerating}><Upload size={16} /> Importa</Button>
-            {/* NUOVO BOTTONE ESPORTA TUTTO */}
             <Button onClick={handleExportAllWorkouts} variant="secondary" disabled={workouts.length === 0}><Archive size={16} /> Esporta Tutto</Button>
             <Button onClick={handleGenerateAIClick} className={`text-white ${activeTheme.bgClass}`} disabled={isGenerating}>
               <Sparkles size={16} /> {isGenerating ? 'Creazione...' : 'Crea con AI'}
@@ -278,8 +263,7 @@ export const ManagePage: React.FC = () => {
             <div className="flex items-center justify-between mt-4 gap-2">
               <Button onClick={() => setActiveWorkout(workout.id)} variant={activeWorkout?.id === workout.id ? "default" : "secondary"} className={`flex-1 ${activeWorkout?.id === workout.id ? activeTheme.bgClass + ' text-white' : ''}`}><CheckCircle size={16}/> {activeWorkout?.id === workout.id ? 'Attiva' : 'Seleziona'}</Button>
               <div className="flex">
-                {/* BOTTONE OTTIMIZZA AI RIPRISTINATO */}
-                <button onClick={handleOptimizeAIClick} className="p-2 text-gray-500 hover:text-purple-500" title="Ottimizza con AI"><Wand2 size={18} /></button>
+                {/* BOTTONE "OTTIMIZZA CON AI" RIMOSSO COME RICHIESTO */}
                 <button onClick={() => handleExportWorkout(workout)} className="p-2 text-gray-500 hover:text-green-500" title="Esporta in JSON"><Download size={18} /></button>
                 <button onClick={() => handleOpenModal(workout)} className="p-2 text-gray-500 hover:text-blue-500" title="Modifica"><Edit size={18} /></button>
                 <button onClick={() => handleDeleteWithConfirmation(workout.id, workout.name)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>

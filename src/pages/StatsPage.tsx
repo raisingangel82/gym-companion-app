@@ -21,26 +21,28 @@ import {
 
 interface ChartDataPoint {
   date: string;
-  value: number; // Rinominato da 'volume' a 'value' per generalizzare
+  value: number;
 }
 
-// NUOVA FUNZIONE: Mappa un esercizio al suo gruppo muscolare principale.
-// Questa è una mappatura di base, puoi espanderla con più esercizi.
 const getMuscleGroupForExercise = (exerciseName: string): string => {
   const normalizedName = exerciseName.toLowerCase().trim();
   
-  // Mappatura (Nome Esercizio -> Gruppo Muscolare)
+  // MODIFICA: La mappa è stata "addestrata" con i tuoi esercizi
   const map: Record<string, string> = {
-    'panca piana': 'Petto',
+    // Petto
+    'panca': 'Petto', // Riconosce "panca orizzontale", "panca inclinata", etc.
     'bench press': 'Petto',
     'chest press': 'Petto',
     'croci': 'Petto',
     'push up': 'Petto',
+    // Dorsali
     'trazioni': 'Dorsali',
     'lat machine': 'Dorsali',
     'rematore': 'Dorsali',
     'pull down': 'Dorsali',
     'pulley': 'Dorsali',
+    'vertical traction': 'Dorsali', // AGGIUNTO
+    // Gambe
     'squat': 'Gambe',
     'leg press': 'Gambe',
     'affondi': 'Gambe',
@@ -48,13 +50,19 @@ const getMuscleGroupForExercise = (exerciseName: string): string => {
     'leg curl': 'Gambe',
     'stacco': 'Gambe',
     'deadlift': 'Gambe',
+    // Spalle
     'shoulder press': 'Spalle',
     'military press': 'Spalle',
     'lento avanti': 'Spalle',
     'alzate laterali': 'Spalle',
+    // Tricipiti
     'french press': 'Tricipiti',
     'push down': 'Tricipiti',
+    'triceps station': 'Tricipiti', // AGGIUNTO
+    'dips': 'Tricipiti',             // AGGIUNTO
+    // Bicipiti
     'curl': 'Bicipiti',
+    // Addome
     'crunch': 'Addome',
     'plank': 'Addome',
   };
@@ -65,7 +73,7 @@ const getMuscleGroupForExercise = (exerciseName: string): string => {
     }
   }
   
-  return 'Altro'; // Gruppo di fallback per esercizi non mappati
+  return 'Altro';
 };
 
 
@@ -83,9 +91,7 @@ export const StatsPage: React.FC = () => {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // MODIFICA PRINCIPALE: Tutta la logica di calcolo è stata riscritta.
   const aggregatedStats = useMemo(() => {
-    // La struttura ora sarà: { 'Petto': [...], 'Gambe': [...], 'Cardio': [...] }
     const stats: Record<string, Record<string, number>> = {};
 
     workouts.forEach(workout => {
@@ -97,17 +103,17 @@ export const StatsPage: React.FC = () => {
         session.exercises.forEach(exercise => {
           if (!exercise.performance || exercise.performance.length === 0) return;
 
-          const sessionDate = new Date(session.date).toISOString().split('T')[0]; // Raggruppa per giorno
+          const sessionDate = new Date(session.date).toISOString().split('T')[0];
 
           if (exercise.type === 'cardio') {
-            const totalDuration = exercise.performance.reduce((sum, set) => sum + (set.duration || 0), 0);
+            const totalDuration = exercise.performance.reduce((sum, set) => sum + (Number(set.duration) || 0), 0);
             if (totalDuration > 0) {
               if (!stats['Cardio']) stats['Cardio'] = {};
               stats['Cardio'][sessionDate] = (stats['Cardio'][sessionDate] || 0) + totalDuration;
             }
-          } else { // Esercizio di forza (strength)
+          } else {
             const muscleGroup = getMuscleGroupForExercise(exercise.name);
-            const totalSets = exercise.performance.length; // Il volume è il numero di serie allenanti
+            const totalSets = exercise.performance.length;
             
             if (totalSets > 0) {
                 if (!stats[muscleGroup]) stats[muscleGroup] = {};
@@ -118,14 +124,12 @@ export const StatsPage: React.FC = () => {
       });
     });
 
-    // Trasformiamo i dati aggregati nel formato richiesto dal grafico
     const chartData: Record<string, ChartDataPoint[]> = {};
     for (const group in stats) {
         chartData[group] = Object.entries(stats[group]).map(([date, value]) => ({
             date,
             value,
         }));
-        // Ordiniamo i dati per data
         chartData[group].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
 
@@ -142,8 +146,6 @@ export const StatsPage: React.FC = () => {
   }, [availableGroups, selectedGroup]);
   
   const handleGenerateReport = async () => {
-    // La logica per generare il report AI può rimanere la stessa o essere adattata
-    // per ora la lasciamo invariata, ma potrebbe essere un prossimo step di miglioramento.
     if (!user || isGeneratingReport || !selectedGroup) return;
 
     const relevantWorkout = workouts.find(w => w.history && w.history.length > 0);
@@ -191,7 +193,6 @@ export const StatsPage: React.FC = () => {
   const selectedGroupData = aggregatedStats[selectedGroup] || [];
   const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
   
-  // Logica per etichette dinamiche
   const yAxisLabel = selectedGroup === 'Cardio' ? 'Durata (min)' : 'Serie Allenanti';
   const legendLabel = selectedGroup === 'Cardio' ? 'Durata' : 'Serie';
 
