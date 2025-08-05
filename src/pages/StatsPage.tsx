@@ -59,46 +59,28 @@ export const StatsPage: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const aggregatedStats = useMemo(() => {
-    console.log("--- NUOVO CALCOLO STATISTICHE ---");
+    // ... (logica di aggregazione per i grafici, rimane invariata)
     const stats: Record<string, Record<string, number>> = {};
-
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
-
       workout.history.forEach(session => {
         if (!session?.exercises) return;
-
         const dailyTotals: Record<string, number> = {};
-        
-        // DEBUG: Mostra tutti gli esercizi della sessione che stiamo per analizzare
-        console.log(`[DEBUG] Analizzo sessione del ${new Date(session.date).toLocaleDateString()}:`, session.exercises.map(e => e.name));
-
         session.exercises.forEach(exercise => {
           if (!exercise.performance || exercise.performance.length === 0) return;
-
           if (exercise.type === 'cardio') {
             const totalDuration = exercise.performance.reduce((sum, set) => sum + (Number(set.duration) || 0), 0);
-            
-            // DEBUG: Mostra i calcoli per ogni esercizio cardio
-            console.log(`[DEBUG] Trovato CARDIO: '${exercise.name}'. Durata calcolata: ${totalDuration}`);
-            console.log(`       -> Valore 'Cardio' PRIMA dell'aggiunta: ${dailyTotals['Cardio'] || 0}`);
-            
             if (!dailyTotals['Cardio']) dailyTotals['Cardio'] = 0;
             dailyTotals['Cardio'] += totalDuration;
-
-            console.log(`       -> Valore 'Cardio' DOPO l'aggiunta: ${dailyTotals['Cardio']}`);
-
           } else {
             const muscleGroup = getMuscleGroupForExercise(exercise.name);
             const tonnage = exercise.performance.reduce((sum, set) => {
                 return sum + ((Number(set.reps) || 0) * (Number(set.weight) || 0));
             }, 0);
-
             if (!dailyTotals[muscleGroup]) dailyTotals[muscleGroup] = 0;
             dailyTotals[muscleGroup] += tonnage;
           }
         });
-
         const sessionDate = new Date(session.date).toISOString().split('T')[0];
         for (const group in dailyTotals) {
             if (dailyTotals[group] > 0) {
@@ -109,14 +91,11 @@ export const StatsPage: React.FC = () => {
         }
       });
     });
-
-    console.log("--- CALCOLO STATISTICHE COMPLETATO ---");
     const chartData: Record<string, ChartDataPoint[]> = {};
     for (const group in stats) {
         chartData[group] = Object.entries(stats[group]).map(([date, value]) => ({ date, value }));
         chartData[group].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
-
     return chartData;
   }, [workouts]);
 
@@ -129,9 +108,50 @@ export const StatsPage: React.FC = () => {
     }
   }, [availableGroups, selectedGroup]);
   
-  const handleGenerateReport = async () => { /* ... logica invariata ... */ };
+  const handleGenerateReport = async () => {
+    // MODIFICA: Rimosso il controllo su `selectedGroup`
+    if (!user || isGeneratingReport) return;
+
+    // MODIFICA: Raccogliamo la cronologia da TUTTE le schede
+    const combinedHistory = workouts
+      .flatMap(w => w.history || [])
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    if (combinedHistory.length === 0) {
+        alert("Nessun allenamento con una cronologia per generare un report.");
+        return;
+    }
+
+    setIsGeneratingReport(true);
+    setReportData(null);
+    setIsReportModalOpen(true);
+
+    try {
+        const functions = getFunctions(getApp(), 'europe-west1');
+        const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport');
+        
+        const userProfile = { goal: user.goal, injuries: user.injuries };
+        
+        // MODIFICA: Inviamo lo storico completo all'AI
+        const result = await generatePerformanceReport({ 
+            userProfile, 
+            workoutHistory: combinedHistory,
+            workoutName: "Riepilogo Generale" // Nome generico
+        });
+
+        setReportData(result.data as ReportData);
+
+    } catch (error) {
+        console.error("Errore durante la generazione del report:", error);
+        alert("Si è verificato un errore durante la generazione del report.");
+        setIsReportModalOpen(false);
+    } finally {
+        setIsGeneratingReport(false);
+    }
+  };
   
   useEffect(() => {
+    // Questa logica rimane corretta: il pulsante è attivo se ci sono dati e l'utente è Pro
     if (availableGroups.length > 0 && user?.plan === 'Pro') {
       registerAction(handleGenerateReport);
     } else {
