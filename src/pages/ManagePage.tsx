@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer } from 'lucide-react';
+// NUOVA ICONA: Aggiungiamo Download per l'export
+import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -58,6 +59,37 @@ export const ManagePage: React.FC = () => {
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
+
+  // NUOVA FUNZIONE: Gestisce l'export della scheda in JSON
+  const handleExportWorkout = (workout: Workout) => {
+    // 1. Rimuoviamo l'ID per un export più pulito, opzionale
+    const { id, ...workoutToExport } = workout;
+    
+    // 2. Convertiamo l'oggetto in una stringa JSON ben formattata
+    const jsonString = JSON.stringify(workoutToExport, null, 2);
+    
+    // 3. Creiamo un "Blob", ovvero un oggetto simile a un file
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    
+    // 4. Creiamo un URL temporaneo per il nostro file
+    const url = URL.createObjectURL(blob);
+    
+    // 5. Creiamo un link di download invisibile
+    const link = document.createElement('a');
+    link.href = url;
+    // Creiamo un nome file "pulito"
+    const fileName = `${workout.name.toLowerCase().replace(/\s+/g, '-')}.json`;
+    link.download = fileName;
+    
+    // 6. Simuliamo il click per avviare il download e poi rimuoviamo il link
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // 7. Rilasciamo l'URL temporaneo per liberare memoria
+    URL.revokeObjectURL(url);
+  };
+
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -168,7 +200,6 @@ export const ManagePage: React.FC = () => {
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Tonalità</label>
             <div className="flex rounded-lg p-1 bg-gray-200 dark:bg-gray-700">
-              {/* MODIFICA 1: Stile del selettore tonalità corretto */}
               {(['400', '700', '800'] as const).map(shade => (
                 <button 
                   key={shade} 
@@ -221,7 +252,8 @@ export const ManagePage: React.FC = () => {
             <div className="flex items-center justify-between mt-4 gap-2">
               <Button onClick={() => setActiveWorkout(workout.id)} variant={activeWorkout?.id === workout.id ? "default" : "secondary"} className={`flex-1 ${activeWorkout?.id === workout.id ? activeTheme.bgClass + ' text-white' : ''}`}><CheckCircle size={16}/> {activeWorkout?.id === workout.id ? 'Attiva' : 'Seleziona'}</Button>
               <div className="flex">
-                {/* MODIFICA 2: Pulsante "Ottimizza con AI" rimosso */}
+                {/* NUOVO PULSANTE EXPORT */}
+                <button onClick={() => handleExportWorkout(workout)} className="p-2 text-gray-500 hover:text-green-500" title="Esporta in JSON"><Download size={18} /></button>
                 <button onClick={() => handleOpenModal(workout)} className="p-2 text-gray-500 hover:text-blue-500" title="Modifica"><Edit size={18} /></button>
                 <button onClick={() => deleteWorkout(workout.id)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>
               </div>
