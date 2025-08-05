@@ -1,17 +1,14 @@
-import React, { Fragment } from 'react';
+import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
-import { ThumbsUp, ThumbsDown, ClipboardCheck, Zap } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext'; // MODIFICA: Importato per usare il tema
+import { Sparkles, Zap } from 'lucide-react';
 
-// Definiamo la struttura dei dati del report
 export interface ReportData {
   title: string;
   summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  recommendedOption: { title: string; why: string; how: string; };
-  alternativeOption: { title: string; why: string; how: string; };
-  nextStep: string;
+  positivePoints: string[];
+  improvementAreas: string[];
 }
 
 interface ReportModalProps {
@@ -22,6 +19,9 @@ interface ReportModalProps {
 }
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, reportData, isLoading }) => {
+  // MODIFICA: Aggiunto il hook per il tema
+  const { activeTheme } = useTheme();
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -31,57 +31,48 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, repor
         <div className="fixed inset-0 overflow-y-auto">
           <div className="flex min-h-full items-center justify-center p-4">
             <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
-                <header className="bg-gray-50 dark:bg-gray-700/50 p-6">
-                  <Dialog.Title as="h3" className="text-xl font-bold leading-6 text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <ClipboardCheck /> {reportData?.title || 'Analisi Performance'}
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left align-middle shadow-xl transition-all">
+                <div className="p-6">
+                  <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Sparkles size={20} className="text-primary" />
+                    Report Performance AI
                   </Dialog.Title>
-                </header>
-                
-                <main className="p-6 max-h-[60vh] overflow-y-auto">
-                  {isLoading && <div className="text-center p-8">Analisi in corso...</div>}
+                  
+                  {isLoading && (
+                    <div className="text-center p-8">
+                      <p className="text-gray-600 dark:text-gray-300">L'AI sta analizzando i tuoi dati...</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500">Potrebbe volerci un minuto.</p>
+                    </div>
+                  )}
+
                   {reportData && (
-                    <div className="space-y-6">
+                    <div className="mt-4 space-y-4">
+                      {/* MODIFICA: Aggiunte classi per il tema scuro */}
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{reportData.title}</h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{reportData.summary}</p>
+                      
                       <div>
-                        <h4 className="font-semibold text-gray-800 dark:text-gray-200">Sintesi Generale</h4>
-                        <p className="mt-1 text-gray-600 dark:text-gray-400">{reportData.summary}</p>
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><Zap size={16} className="text-green-500"/> Punti di Forza</h3>
+                        <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                          {reportData.positivePoints.map((point, index) => <li key={index}>{point}</li>)}
+                        </ul>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 bg-green-50 dark:bg-green-900/50 rounded-lg">
-                          <h4 className="font-semibold flex items-center gap-2 text-green-800 dark:text-green-300"><ThumbsUp size={18}/> Punti di Forza</h4>
-                          <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-green-700 dark:text-green-400">
-                            {reportData.strengths.map((item, i) => <li key={i}>{item}</li>)}
-                          </ul>
-                        </div>
-                        <div className="p-4 bg-red-50 dark:bg-red-900/50 rounded-lg">
-                          <h4 className="font-semibold flex items-center gap-2 text-red-800 dark:text-red-300"><ThumbsDown size={18}/> Aree di Miglioramento</h4>
-                          <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-red-700 dark:text-red-400">
-                            {reportData.weaknesses.map((item, i) => <li key={i}>{item}</li>)}
-                          </ul>
-                        </div>
-                      </div>
+                      
                       <div>
-                        <h4 className="font-bold text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2"><Zap size={20}/> Raccomandazione Strategica</h4>
-                        <div className="mt-2 p-4 border-l-4 border-primary bg-gray-50 dark:bg-gray-700/50 rounded-r-lg">
-                            <p className="font-bold">{reportData.recommendedOption.title}</p>
-                            <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">{reportData.recommendedOption.why}</p>
-                            <p className="mt-2 text-xs font-mono"><b>Come:</b> {reportData.recommendedOption.how}</p>
-                        </div>
-                         <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                            <p className="font-bold">{reportData.alternativeOption.title}</p>
-                            <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">{reportData.alternativeOption.why}</p>
-                             <p className="mt-2 text-xs font-mono"><b>Come:</b> {reportData.alternativeOption.how}</p>
-                        </div>
-                      </div>
-                       <div>
-                        <h4 className="font-semibold text-gray-800 dark:text-gray-200">Prossimo Passo</h4>
-                        <p className="mt-1 text-gray-600 dark:text-gray-400">{reportData.nextStep}</p>
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><Zap size={16} className="text-yellow-500"/> Aree di Miglioramento</h3>
+                        <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                          {reportData.improvementAreas.map((point, index) => <li key={index}>{point}</li>)}
+                        </ul>
                       </div>
                     </div>
                   )}
-                </main>
+                </div>
+
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end">
-                  <Button onClick={onClose}>Chiudi</Button>
+                  {/* MODIFICA: Aggiunte classi per il colore del tema */}
+                  <Button onClick={onClose} className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`}>
+                    Capito!
+                  </Button>
                 </footer>
               </Dialog.Panel>
             </Transition.Child>
