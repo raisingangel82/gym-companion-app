@@ -14,9 +14,6 @@ import {
 import { db, auth } from './firebase';
 import type { Workout, WorkoutData, UserProfile } from '../types';
 
-/**
- * Attiva un listener in tempo reale per le schede di allenamento dell'utente corrente.
- */
 export const onWorkoutsSnapshot = (
   onSuccess: (workouts: Workout[]) => void,
   onError: (error: Error) => void
@@ -32,6 +29,8 @@ export const onWorkoutsSnapshot = (
   
   const unsubscribe = onSnapshot(q, 
     (snapshot) => {
+      // --- LOG 9 ---
+      console.log(`[firestore.ts] onWorkoutsSnapshot ATTIVATO. Ricevuti ${snapshot.docs.length} documenti.`);
       const workoutsData = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -54,9 +53,6 @@ export const onWorkoutsSnapshot = (
   return unsubscribe;
 };
 
-/**
- * Aggiunge una nuova scheda di allenamento per l'utente corrente.
- */
 export const addWorkout = async (workoutData: WorkoutData) => {
   const user = auth.currentUser;
   if (!user) throw new Error("Utente non autenticato per aggiungere una scheda.");
@@ -65,19 +61,16 @@ export const addWorkout = async (workoutData: WorkoutData) => {
   await addDoc(workoutsCollection, { ...workoutData, createdAt: Timestamp.now() });
 };
 
-/**
- * Aggiorna una scheda di allenamento esistente.
- */
 export const updateWorkout = async (workoutId: string, updatedData: Partial<WorkoutData>) => {
   const user = auth.currentUser;
   if (!user) throw new Error("Utente non autenticato per aggiornare una scheda.");
   const workoutDoc = doc(db, 'users', user.uid, 'workouts', workoutId);
+  
+  // --- LOG 8 ---
+  console.log(`[firestore.ts] Eseguo updateDoc su workouts/${workoutId}. Dati:`, updatedData);
   await updateDoc(workoutDoc, updatedData);
 };
 
-/**
- * Elimina una scheda di allenamento.
- */
 export const deleteWorkout = async (workoutId: string) => {
   const user = auth.currentUser;
   if (!user) throw new Error("Utente non autenticato per eliminare una scheda.");
@@ -85,17 +78,11 @@ export const deleteWorkout = async (workoutId: string) => {
   await deleteDoc(workoutDoc);
 };
 
-/**
- * Crea o aggiorna il documento del profilo di un utente.
- */
 export const updateUserProfile = async (userId: string, data: UserProfile) => {
   const userDocRef = doc(db, 'users', userId);
   await setDoc(userDocRef, data, { merge: true });
 };
 
-/**
- * Recupera il documento del profilo di un utente.
- */
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   try {
     const userDocRef = doc(db, 'users', userId);

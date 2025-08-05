@@ -9,12 +9,9 @@ import { Button } from '../components/ui/Button';
 import { ExerciseLogModal } from '../components/ExerciseLogModal';
 import { SessionLogModal, type SessionLogData } from '../components/SessionLogModal';
 import { ExerciseSubstitutionModal } from '../components/ExerciseSubstitutionModal';
-import { PerformanceSummary } from '../components/PerformanceSummary'; // MODIFICA: Import del nuovo componente
+import { PerformanceSummary } from '../components/PerformanceSummary';
 import { Info, ImageOff, Undo2, Save, Repeat } from 'lucide-react';
 import type { Exercise, SetPerformance } from '../types';
-
-// ProgressDots non è più necessario qui, la logica è in PerformanceSummary
-// const ProgressDots: React.FC ...
 
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
@@ -23,8 +20,15 @@ export const WorkoutPage: React.FC = () => {
     const { activeTheme } = useTheme();
     const { startTimer } = useRestTimer();
 
+    // MODIFICA 1: Aggiorniamo il tipo dello stato per includere l'indice dell'esercizio
+    const [logModalState, setLogModalState] = useState<{
+        isOpen: boolean;
+        ex?: Exercise;
+        setIndex?: number;
+        exerciseIndex?: number; // <-- AGGIUNTO
+    }>({ isOpen: false });
+
     const [currentExIndex, setCurrentExIndex] = useState(0);
-    const [logModalState, setLogModalState] = useState<{ isOpen: boolean; ex?: Exercise; setIndex?: number }>({ isOpen: false });
     const [isSessionLogModalOpen, setIsSessionLogModalOpen] = useState(false);
     const [isSubstitutionModalOpen, setIsSubstitutionModalOpen] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -37,7 +41,13 @@ export const WorkoutPage: React.FC = () => {
             const nextSetIndex = currentVisibleExercise.performance?.length || 0;
             const totalSets = currentVisibleExercise.type === 'strength' ? (currentVisibleExercise.sets || 0) : 1;
             if (nextSetIndex < totalSets) {
-                const action = () => setLogModalState({ isOpen: true, ex: currentVisibleExercise, setIndex: nextSetIndex });
+                // MODIFICA 2: Quando registriamo l'azione, salviamo anche l'indice dell'esercizio corrente
+                const action = () => setLogModalState({
+                    isOpen: true,
+                    ex: currentVisibleExercise,
+                    setIndex: nextSetIndex,
+                    exerciseIndex: currentExIndex // <-- AGGIUNTO
+                });
                 registerAction(action);
             } else {
                 registerAction(null);
@@ -49,25 +59,32 @@ export const WorkoutPage: React.FC = () => {
     }, [currentExIndex, activeWorkout, registerAction]);
 
     const handleSavePerformance = async (performance: SetPerformance) => {
-        const exerciseToUpdate = logModalState.ex;
-        const setIndexToUpdate = logModalState.setIndex;
-        if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined) return;
-        
+        // MODIFICA 3: Recuperiamo l'indice direttamente dallo stato della modale
+        const { ex: exerciseToUpdate, setIndex: setIndexToUpdate, exerciseIndex: exerciseIndexToUpdate } = logModalState;
+
+        if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined || exerciseIndexToUpdate === undefined) return;
+
         const updatedExercises = [...activeWorkout.exercises];
-        const exerciseIndexInWorkout = updatedExercises.findIndex(ex => ex.name === exerciseToUpdate.name);
-        if (exerciseIndexInWorkout === -1) return;
-        
+
+        // La vecchia ricerca con findIndex (causa del bug) è stata rimossa.
+        // const exerciseIndexInWorkout = updatedExercises.findIndex(ex => ex.name === exerciseToUpdate.name);
+
         const newPerformance = [...(exerciseToUpdate.performance || [])];
         newPerformance[setIndexToUpdate] = performance;
-        updatedExercises[exerciseIndexInWorkout] = { ...exerciseToUpdate, performance: newPerformance };
         
+        // Usiamo l'indice corretto per aggiornare l'esercizio giusto nell'array
+        updatedExercises[exerciseIndexToUpdate] = { ...exerciseToUpdate, performance: newPerformance };
+
         try {
-            await updateWorkout(activeWorkout.id, { exercises: updatedExercises });
+            await updateWorkout(activeWorkout.id, {
+                exercises: updatedExercises,
+                _lastUpdated: new Date(),
+            });
         } catch (error) {
             console.error("ERRORE durante la chiamata a updateWorkout:", error);
             throw error;
         }
-        
+
         if (autoRestTimer) {
             startTimer(restTime);
         }
@@ -77,12 +94,16 @@ export const WorkoutPage: React.FC = () => {
         if (!activeWorkout) return;
         const exerciseToUpdate = activeWorkout.exercises[currentExIndex];
         if (!exerciseToUpdate?.performance?.length) return;
-        
+
         const updatedExercises = [...activeWorkout.exercises];
         const newPerformance = [...exerciseToUpdate.performance];
         newPerformance.pop();
         updatedExercises[currentExIndex] = { ...exerciseToUpdate, performance: newPerformance };
-        updateWorkout(activeWorkout.id, { exercises: updatedExercises });
+
+        updateWorkout(activeWorkout.id, {
+            exercises: updatedExercises,
+            _lastUpdated: new Date(),
+        });
     };
 
     useEffect(() => {
@@ -128,7 +149,6 @@ export const WorkoutPage: React.FC = () => {
                     const cardBgClass = 'bg-black';
 
                     return (
-                        // MODIFICA LAYOUT: La griglia ora ha 3 righe: Card (1fr), Riepilogo (auto), Bottoni (auto)
                         <div key={exIndex} data-index={exIndex} className="h-full w-full snap-start flex-shrink-0 p-4 grid grid-rows-[1fr_auto_auto]">
                             <div className="row-start-1 row-end-2 overflow-hidden">
                                 <Card className={`h-full w-full flex flex-col overflow-hidden relative text-white ${cardBgClass}`}>
@@ -145,13 +165,11 @@ export const WorkoutPage: React.FC = () => {
                                     </div>
                                 </Card>
                             </div>
-                            
-                            {/* MODIFICA: Nuova riga per il riepilogo della performance */}
+
                             <div className="row-start-2 row-end-3 py-3">
                                 <PerformanceSummary exercise={exercise} performance={currentExercisePerformance} />
                             </div>
 
-                            {/* MODIFICA: Riga dei bottoni spostata alla terza riga della griglia */}
                             <div className="row-start-3 row-end-4">
                                 <div className="grid grid-cols-3 gap-4">
                                     <Button onClick={handleUndoLastSet} variant="secondary" disabled={!currentExercisePerformance.length || currentExIndex !== exIndex}>
@@ -169,7 +187,7 @@ export const WorkoutPage: React.FC = () => {
                     );
                 })}
             </div>
-            
+
             {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
                 <ExerciseLogModal
                     isOpen={logModalState.isOpen}
