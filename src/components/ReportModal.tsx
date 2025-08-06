@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
-import { useTheme } from '../contexts/ThemeContext'; // MODIFICA: Importato per usare il tema
+import { useTheme } from '../contexts/ThemeContext';
 import { Sparkles, Zap } from 'lucide-react';
 
 export interface ReportData {
@@ -19,7 +19,6 @@ interface ReportModalProps {
 }
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, reportData, isLoading }) => {
-  // MODIFICA: Aggiunto il hook per il tema
   const { activeTheme } = useTheme();
 
   return (
@@ -47,21 +46,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, repor
 
                   {reportData && (
                     <div className="mt-4 space-y-4">
-                      {/* MODIFICA: Aggiunte classi per il tema scuro */}
                       <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{reportData.title}</h2>
                       <p className="text-sm text-gray-600 dark:text-gray-300">{reportData.summary}</p>
                       
                       <div>
                         <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><Zap size={16} className="text-green-500"/> Punti di Forza</h3>
                         <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                          {reportData.positivePoints.map((point, index) => <li key={index}>{point}</li>)}
+                          {/* MODIFICA DI SICUREZZA: Controlla che l'array esista prima di mapparlo */}
+                          {Array.isArray(reportData.positivePoints) && reportData.positivePoints.map((point, index) => <li key={index}>{point}</li>)}
                         </ul>
                       </div>
                       
                       <div>
                         <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><Zap size={16} className="text-yellow-500"/> Aree di Miglioramento</h3>
                         <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                          {reportData.improvementAreas.map((point, index) => <li key={index}>{point}</li>)}
+                          {/* MODIFICA DI SICUREZZA: Controlla che l'array esista prima di mapparlo */}
+                          {Array.isArray(reportData.improvementAreas) && reportData.improvementAreas.map((point, index) => <li key={index}>{point}</li>)}
                         </ul>
                       </div>
                     </div>
@@ -69,7 +69,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, repor
                 </div>
 
                 <footer className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex justify-end">
-                  {/* MODIFICA: Aggiunte classi per il colore del tema */}
                   <Button onClick={onClose} className={`w-full text-white ${activeTheme.bgClass} hover:opacity-90`}>
                     Capito!
                   </Button>
