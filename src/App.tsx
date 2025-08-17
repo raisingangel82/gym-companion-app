@@ -62,16 +62,45 @@ function MainAppLayout() {
     }
   }, [isPlaying, playerRef, decorativePlayerRef]);
   
-  const handleCompleteOnboarding = useCallback(async (data: UserProfile) => {
+  // ==================================================================
+  // ========= INIZIO DELLA MODIFICA: Funzione Corretta =========
+  // ==================================================================
+  const handleCompleteOnboarding = useCallback(async (formData: UserProfile) => {
     if (!user) return;
     try {
-      await updateUserProfile(user.uid, data);
+      // 1. DEFINISCI LE CHIAVI DEL TUO PROFILO
+      // Elenca qui tutte le proprietà che compongono il profilo di un utente 
+      // e che sono gestite dal tuo OnboardingModal.
+      // ⚠️ ATTENZIONE: MODIFICA QUESTO ARRAY CON LE CHIAVI CORRETTE DEL TUO TIPO `UserProfile`!
+      const profileKeys: (keyof UserProfile)[] = [
+        'name', 'age', 'weight', 'height',    // Esempio da Step1_UserData
+        'goal', 'experienceLevel',            // Esempio da Step2_Goals
+        'healthNotes', 'injuries'             // Esempio da Step3_Health
+        // Aggiungi qui qualsiasi altra chiave del tuo tipo UserProfile!
+      ];
+
+      // 2. CREA UN OGGETTO "PULITO"
+      const profileToSave: Partial<UserProfile> = {};
+
+      // 3. POPOLA L'OGGETTO PULITO
+      profileKeys.forEach(key => {
+        if (formData[key] !== undefined) {
+          profileToSave[key] = formData[key];
+        }
+      });
+      
+      // 4. SALVA I DATI PULITI
+      await updateUserProfile(user.uid, profileToSave);
+
     } catch (error) {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
     } finally {
       setIsOnboardingModalOpen(false);
     }
   }, [user]);
+  // ==================================================================
+  // ============= FINE DELLA MODIFICA =============
+  // ==================================================================
   
   const actionConfig: ActionConfig = useMemo(() => {
     if (currentPath === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
@@ -93,9 +122,6 @@ function MainAppLayout() {
     },
   };
 
-  // MODIFICA: La vecchia funzione 'handlePlayerStateChange' locale è stata rimossa
-  // perché ora la logica è gestita centralmente nel MusicContext.
-
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
@@ -116,7 +142,6 @@ function MainAppLayout() {
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onEnd={() => setIsPlaying(false)}
-            // MODIFICA: Colleghiamo i nuovi gestori di eventi dal contesto
             onStateChange={handlePlayerStateChange}
             onError={handlePlayerError}
           />
