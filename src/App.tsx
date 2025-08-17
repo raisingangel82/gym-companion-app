@@ -10,7 +10,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { RestTimerProvider, useRestTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
-import type { ActionConfig, UserProfile } from './types';
+import type { ActionConfig, UserProfile } from './types'; // Assicurati che questo importi da index.ts
 
 // Componenti e Pagine
 import { Header } from './components/Header';
@@ -29,7 +29,6 @@ import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
 function MainAppLayout() {
-  // MODIFICA: Recuperiamo le nuove funzioni di gestione dal contesto musicale
   const { 
     isPlaying, 
     setIsPlaying, 
@@ -37,8 +36,8 @@ function MainAppLayout() {
     playlistId, 
     playerRef, 
     decorativePlayerRef,
-    handlePlayerStateChange, // <-- NUOVO
-    handlePlayerError        // <-- NUOVO
+    handlePlayerStateChange,
+    handlePlayerError
   } = useMusic();
 
   const { registeredAction } = usePageAction();
@@ -68,31 +67,39 @@ function MainAppLayout() {
   const handleCompleteOnboarding = useCallback(async (formData: UserProfile) => {
     if (!user) return;
     try {
-      // 1. DEFINISCI LE CHIAVI DEL TUO PROFILO
-      // Elenca qui tutte le proprietà che compongono il profilo di un utente 
-      // e che sono gestite dal tuo OnboardingModal.
-      // ⚠️ ATTENZIONE: MODIFICA QUESTO ARRAY CON LE CHIAVI CORRETTE DEL TUO TIPO `UserProfile`!
+      // 1. DEFINIZIONE CHIAVI CORRETTA BASATA SU `index.ts`
+      // Questa lista ora riflette esattamente le proprietà definite nella tua interfaccia UserProfile.
       const profileKeys: (keyof UserProfile)[] = [
-        'name', 'age', 'weight', 'height',    // Esempio da Step1_UserData
-        'goal', 'experienceLevel',            // Esempio da Step2_Goals
-        'healthNotes', 'injuries'             // Esempio da Step3_Health
-        // Aggiungi qui qualsiasi altra chiave del tuo tipo UserProfile!
+        'plan',
+        'gender',
+        'age',
+        'height',
+        'weight',
+        'goal',
+        'experience',
+        'frequency',
+        'duration',
+        'equipment',
+        'lifestyle',
+        'injuries',
+        'pathologies',
+        'mobility_issues',
+        'favoritePlaylists'
       ];
 
-      // 2. CREA UN OGGETTO "PULITO"
-      const profileToSave: Partial<UserProfile> = {};
-
-      // 3. POPOLA L'OGGETTO PULITO
-      profileKeys.forEach(key => {
-        if (formData[key] !== undefined) {
-          profileToSave[key] = formData[key];
-        }
-      });
+      // 2. CREAZIONE DELL'OGGETTO "PULITO" IN MODO TYPE-SAFE
+      // Questo approccio filtra l'oggetto ricevuto dal form, mantenendo solo le chiavi 
+      // valide e i cui valori non sono `undefined`, risolvendo gli errori di build.
+      const profileToSave = Object.fromEntries(
+        Object.entries(formData).filter(([key, value]) => 
+            profileKeys.includes(key as keyof UserProfile) && value !== undefined
+        )
+      );
       
-      // 4. SALVA I DATI PULITI
+      // 3. SALVATAGGIO DEI DATI PULITI
       await updateUserProfile(user.uid, profileToSave);
 
-    } catch (error) {
+    } catch (error)      {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
     } finally {
       setIsOnboardingModalOpen(false);
