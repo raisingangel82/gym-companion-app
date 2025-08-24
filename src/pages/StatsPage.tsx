@@ -26,14 +26,15 @@ interface ChartDataPoint {
 
 const getMuscleGroupForExercise = (exerciseName: string): string => {
   const normalizedName = exerciseName.toLowerCase().trim();
-  // MODIFICA: Ho aggiunto nuove parole chiave per categorizzare più esercizi
+  // CORREZIONE: Riorganizzato l'ordine per dare priorità a parole chiave più specifiche (es. curl, dips)
+  // rispetto a quelle più generiche (es. panca). Bicipiti e Tricipiti ora vengono controllati prima di Petto.
   const map: Record<string, string> = {
+    'curl': 'Bicipiti',
+    'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti',
     'panca': 'Petto', 'bench press': 'Petto', 'chest press': 'Petto', 'croci': 'Petto', 'push up': 'Petto',
     'trazioni': 'Dorsali', 'lat machine': 'Dorsali', 'rematore': 'Dorsali', 'pull down': 'Dorsali', 'pulley': 'Dorsali', 'vertical traction': 'Dorsali',
     'squat': 'Gambe', 'leg press': 'Gambe', 'affondi': 'Gambe', 'leg extension': 'Gambe', 'leg curl': 'Gambe', 'stacco': 'Gambe', 'deadlift': 'Gambe', 'hip thrust': 'Gambe', 'step up': 'Gambe',
-    'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle', 'face pull': 'Spalle',
-    'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti',
-    'curl': 'Bicipiti',
+    'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle', 'face pull': 'Spalle', 'rear delt': 'Spalle',
     'crunch': 'Addome', 'plank': 'Addome', 'leg raise': 'Addome', 'twist': 'Addome',
   };
 
@@ -60,7 +61,6 @@ export const StatsPage: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const aggregatedStats = useMemo(() => {
-    // ... (logica di aggregazione per i grafici, rimane invariata)
     const stats: Record<string, Record<string, number>> = {};
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
@@ -110,10 +110,8 @@ export const StatsPage: React.FC = () => {
   }, [availableGroups, selectedGroup]);
   
   const handleGenerateReport = async () => {
-    // MODIFICA: Rimosso il controllo su `selectedGroup`
     if (!user || isGeneratingReport) return;
 
-    // MODIFICA: Raccogliamo la cronologia da TUTTE le schede
     const combinedHistory = workouts
       .flatMap(w => w.history || [])
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -133,11 +131,10 @@ export const StatsPage: React.FC = () => {
         
         const userProfile = { goal: user.goal, injuries: user.injuries };
         
-        // MODIFICA: Inviamo lo storico completo all'AI
         const result = await generatePerformanceReport({ 
             userProfile, 
             workoutHistory: combinedHistory,
-            workoutName: "Riepilogo Generale" // Nome generico
+            workoutName: "Riepilogo Generale"
         });
 
         setReportData(result.data as ReportData);
@@ -152,7 +149,6 @@ export const StatsPage: React.FC = () => {
   };
   
   useEffect(() => {
-    // Questa logica rimane corretta: il pulsante è attivo se ci sono dati e l'utente è Pro
     if (availableGroups.length > 0 && user?.plan === 'Pro') {
       registerAction(handleGenerateReport);
     } else {
