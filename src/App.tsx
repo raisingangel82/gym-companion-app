@@ -29,13 +29,9 @@ import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
-
-// ==================================================================
-// ========= MODIFICA 1: Ridotta la dimensione di default =========
-// ==================================================================
+// Valori di default iniziali per il mini-player
 const defaultMiniPlayerSize = { width: 240, height: 135 };
 const defaultMiniPlayerPosition = { x: window.innerWidth - 260, y: window.innerHeight - 215 };
-
 
 function MainAppLayout() {
   const { 
@@ -122,23 +118,10 @@ function MainAppLayout() {
       className="w-full h-full"
     />
   ), [playerRef, handlePlayerStateChange, handlePlayerError, videoId, playlistId, playTrack, playPlaylist]);
-
-  // =======================================================================
-  // === MODIFICA 2: Configurazione esplicita per il ridimensionamento ===
-  // =======================================================================
-  const resizeHandleClasses = {
-      bottomRight: 'w-4 h-4 -right-1 -bottom-1 absolute cursor-se-resize' // Esempio per personalizzare la maniglia
-  };
-
+  
   const resizingConfig = {
-      top: !isPlayerMaximized,
-      right: !isPlayerMaximized,
-      bottom: !isPlayerMaximized,
-      left: !isPlayerMaximized,
-      topRight: !isPlayerMaximized,
-      bottomRight: !isPlayerMaximized,
-      bottomLeft: !isPlayerMaximized,
-      topLeft: !isPlayerMaximized,
+      top: !isPlayerMaximized, right: !isPlayerMaximized, bottom: !isPlayerMaximized, left: !isPlayerMaximized,
+      topRight: !isPlayerMaximized, bottomRight: !isPlayerMaximized, bottomLeft: !isPlayerMaximized, topLeft: !isPlayerMaximized,
   };
 
   return (
@@ -155,15 +138,19 @@ function MainAppLayout() {
         <Rnd
           size={playerSize}
           position={playerPosition}
-          onDragStop={(e, d) => {
+          onDragStop={(_e, d) => { // <-- CORREZIONE: 'e' ignorato
             const newPos = { x: d.x, y: d.y };
             setPlayerPosition(newPos);
             if (!isPlayerMaximized) {
               miniPlayerStateRef.current.position = newPos;
             }
           }}
-          onResizeStop={(e, direction, ref, delta, position) => {
-            const newSize = { width: ref.style.width, height: ref.style.height };
+          onResizeStop={(_e, _direction, ref, _delta, position) => { // <-- CORREZIONE: parametri ignorati
+            // CORREZIONE: convertiamo le stringhe "px" in numeri
+            const newSize = { 
+              width: parseInt(ref.style.width, 10), 
+              height: parseInt(ref.style.height, 10) 
+            };
             setPlayerSize(newSize);
             setPlayerPosition(position);
             if (!isPlayerMaximized) {
@@ -175,8 +162,7 @@ function MainAppLayout() {
           minHeight={135}
           lockAspectRatio={true}
           disableDragging={isPlayerMaximized}
-          enableResizing={resizingConfig} // <-- Utilizziamo la configurazione esplicita
-          resizeHandleClasses={resizeHandleClasses} // Opzionale: per stilizzare le maniglie
+          enableResizing={resizingConfig}
           className={`z-50 shadow-lg rounded-lg overflow-hidden transition-all duration-300 ${isPlayerMaximized ? 'rounded-none shadow-none' : 'border-2 border-primary'}`}
           style={{ transition: isPlayerMaximized ? 'width 0.3s ease, height 0.3s ease, transform 0.3s ease' : 'none' }}
         >

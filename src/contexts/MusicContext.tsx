@@ -17,9 +17,9 @@ interface PlayerEvent {
   data: number; 
 }
 
-// Tipi per la libreria RND
+// Tipi per la libreria RND - CORREZIONE: usiamo solo number
 type Position = { x: number; y: number };
-type Size = { width: string | number; height: string | number };
+type Size = { width: number; height: number };
 
 interface MusicContextType {
   videoId: string | null;
@@ -35,7 +35,6 @@ interface MusicContextType {
   handlePlayerStateChange: (event: PlayerEvent) => void;
   handlePlayerError: (event: { data: number }) => void;
   
-  // STATO PER GESTIRE IL PLAYER DRAGGABLE/RESIZABLE
   isPlayerMaximized: boolean;
   setPlayerMaximized: (isMaximized: boolean) => void;
   playerPosition: Position;
@@ -46,10 +45,8 @@ interface MusicContextType {
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
-// Valori di default per il mini-player flottante
-const defaultMiniPlayerSize: Size = { width: 320, height: 180 };
-// Posiziona il mini-player in basso a destra, con un po' di margine
-const defaultMiniPlayerPosition: Position = { x: window.innerWidth - 340, y: window.innerHeight - 260 };
+const defaultMiniPlayerSize: Size = { width: 240, height: 135 };
+const defaultMiniPlayerPosition: Position = { x: window.innerWidth - 260, y: window.innerHeight - 215 };
 
 export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -63,17 +60,13 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [playerSize, setPlayerSize] = useState<Size>(defaultMiniPlayerSize);
 
   const playTrack = useCallback((id: string) => {
-    if (playerRef.current) {
-      playerRef.current.loadVideoById(id);
-    }
+    if (playerRef.current) playerRef.current.loadVideoById(id);
     setVideoId(id);
     setPlaylistId(null);
   }, []);
 
   const playPlaylist = useCallback((id: string) => {
-    if (playerRef.current) {
-      playerRef.current.loadPlaylist({ list: id, listType: 'playlist' });
-    }
+    if (playerRef.current) playerRef.current.loadPlaylist({ list: id, listType: 'playlist' });
     setVideoId(null);
     setPlaylistId(id);
   }, []);
@@ -85,30 +78,20 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setCurrentTrack({ id: null, title: null });
   }, []);
 
-  const nextTrack = useCallback(() => {
-    playerRef.current?.nextVideo();
-  }, []);
-
-  const previousTrack = useCallback(() => {
-    playerRef.current?.previousVideo();
-  }, []);
+  const nextTrack = useCallback(() => { playerRef.current?.nextVideo(); }, []);
+  const previousTrack = useCallback(() => { playerRef.current?.previousVideo(); }, []);
 
   const handlePlayerError = useCallback((event: { data: number }) => {
     console.error(`Youtubeer Error Code: ${event.data}`);
-    if (playlistId) {
-      nextTrack();
-    } else {
-      stopMusic();
-    }
+    if (playlistId) nextTrack();
+    else stopMusic();
   }, [playlistId, nextTrack, stopMusic]);
 
   const handlePlayerStateChange = useCallback((event: PlayerEvent) => {
     const playerState = event.data;
     if (playerState === 1) { // Playing
       const trackData = event.target.getVideoData();
-      if (trackData.video_id) {
-        setCurrentTrack({ id: trackData.video_id, title: trackData.title });
-      }
+      if (trackData.video_id) setCurrentTrack({ id: trackData.video_id, title: trackData.title });
       setIsPlaying(true);
     } else {
       setIsPlaying(false);
@@ -116,24 +99,11 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const value = { 
-    videoId, 
-    playlistId,
-    currentTrack,
-    playTrack, 
-    playPlaylist,
-    stopMusic,
-    isPlaying, 
-    playerRef, 
-    nextTrack,
-    previousTrack,
-    handlePlayerStateChange,
-    handlePlayerError,
-    isPlayerMaximized,
-    setPlayerMaximized,
-    playerPosition,
-    setPlayerPosition,
-    playerSize,
-    setPlayerSize
+    videoId, playlistId, currentTrack, playTrack, playPlaylist, stopMusic,
+    isPlaying, playerRef, nextTrack, previousTrack,
+    handlePlayerStateChange, handlePlayerError,
+    isPlayerMaximized, setPlayerMaximized, playerPosition, setPlayerPosition,
+    playerSize, setPlayerSize
   };
 
   return <MusicContext.Provider value={value}>{children}</MusicContext.Provider>;
@@ -141,8 +111,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
 
 export const useMusic = () => {
   const context = useContext(MusicContext);
-  if (context === undefined) {
-    throw new Error('useMusic must be used within a MusicProvider');
-  }
+  if (context === undefined) throw new Error('useMusic must be used within a MusicProvider');
   return context;
 };
