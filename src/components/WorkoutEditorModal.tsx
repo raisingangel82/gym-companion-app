@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown, Timer } from 'lucide-react'; // MODIFICA: Aggiunta icona Timer
+import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown, Timer } from 'lucide-react';
 import { ExerciseFinder } from './ExerciseFinder';
 import { useTheme } from '../contexts/ThemeContext';
 import type { Workout, WorkoutData, Exercise } from '../types';
@@ -23,16 +23,17 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   useEffect(() => {
     if (isOpen) {
       setName(workout?.name || '');
-      // MODIFICA: Assicuriamo che ogni esercizio abbia un restTimerType di default
-      const initialExercises = workout?.exercises.length 
+      
+      // CORREZIONE 1: Dichiariamo esplicitamente il tipo di 'initialExercises'
+      const initialExercises: Partial<Exercise>[] = workout?.exercises.length 
         ? workout.exercises.map(ex => ({ ...ex, restTimerType: ex.restTimerType || 'primary' }))
         : [{ name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }];
+      
       setExercises(initialExercises);
       setFindingImageForIndex(null);
     }
   }, [isOpen, workout]);
   
-  // ... (useEffect per overflow e altre funzioni rimangono invariate) ...
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -52,11 +53,11 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       if (value === 'strength') {
         exercise.duration = undefined; exercise.speed = undefined; exercise.level = undefined;
         exercise.sets = 3; exercise.reps = '8-12';
-        exercise.restTimerType = exercise.restTimerType || 'primary'; // Assegna default se cambia tipo
+        exercise.restTimerType = exercise.restTimerType || 'primary';
       } else {
         exercise.sets = undefined; exercise.reps = undefined; exercise.weight = undefined;
         exercise.duration = 20;
-        exercise.restTimerType = undefined; // Rimuovi per cardio
+        exercise.restTimerType = undefined;
       }
     }
     (exercise as any)[field] = value;
@@ -91,17 +92,17 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
 
     const finalizedExercises = validExercises.map(ex => {
-      const baseExercise: Partial<Exercise> = { // Usiamo Partial per i campi base
+      const baseExercise: Partial<Exercise> = {
         name: ex.name!,
         type: ex.type || 'strength',
-        imageUrl: ex.imageUrl || null,
+        // CORREZIONE 2: Sostituiamo 'null' con 'undefined' per allinearci al tipo
+        imageUrl: ex.imageUrl || undefined,
         performance: ex.performance || [],
       };
 
       if (baseExercise.type === 'cardio') {
         return { ...baseExercise, duration: ex.duration || 0, speed: ex.speed || 0, level: ex.level || 0 };
       } else {
-        // MODIFICA: Aggiungiamo il salvataggio del restTimerType
         return { ...baseExercise, sets: ex.sets || 0, reps: ex.reps || '0', weight: ex.weight || 0, restTimerType: ex.restTimerType || 'primary' };
       }
     }) as Exercise[];
@@ -163,11 +164,10 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                              <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
                           </div>
                         ) : (
-                          <div className="grid grid-cols-4 gap-2"> {/* MODIFICA: griglia a 4 colonne */}
+                          <div className="grid grid-cols-4 gap-2">
                             <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
                             <Input value={ex.reps ?? ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
                             <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
-                            {/* MODIFICA: Aggiunto selettore per il tipo di timer */}
                             <div className="relative">
                                <Timer size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                                <select 
