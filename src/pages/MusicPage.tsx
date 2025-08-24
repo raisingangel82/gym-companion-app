@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { useMusic } from '../contexts/MusicContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,12 +25,45 @@ const getYouTubePlaylistId = (url: string): string | null => {
 };
 
 export const MusicPage: React.FC = () => {
-  const { currentTrack, playlistId, playTrack, playPlaylist, nextTrack, previousTrack } = useMusic();
+  const { 
+    videoId,
+    playlistId,
+    currentTrack, 
+    playTrack, 
+    playPlaylist, 
+    nextTrack, 
+    previousTrack,
+    setPlayerMaximized,
+    setPlayerPosition,
+    setPlayerSize
+  } = useMusic();
   const { activeTheme } = useTheme();
   const { user, addFavoritePlaylist, removeFavoritePlaylist } = useAuth();
   const [url, setUrl] = useState('');
   const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  
+  const placeholderRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const updatePlayerGeometry = () => {
+      if (placeholderRef.current) {
+        const rect = placeholderRef.current.getBoundingClientRect();
+        setPlayerPosition({ x: rect.left, y: rect.top });
+        setPlayerSize({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updatePlayerGeometry();
+    setPlayerMaximized(true);
+    
+    window.addEventListener('resize', updatePlayerGeometry);
+
+    return () => {
+      setPlayerMaximized(false);
+      window.removeEventListener('resize', updatePlayerGeometry);
+    };
+  }, [setPlayerMaximized, setPlayerPosition, setPlayerSize]);
 
   const handleUrlSubmit = () => {
     if (!url) return;
@@ -76,20 +109,18 @@ export const MusicPage: React.FC = () => {
     }
   }
 
-  const isMusicActive = !!currentTrack.id;
-  const coverImageUrl = isMusicActive ? `https://i.ytimg.com/vi/${currentTrack.id}/hqdefault.jpg` : '';
+  const isMusicActive = !!(videoId || playlistId);
 
   return (
     <>
       <div className="container mx-auto p-4 space-y-6 pb-32">
-        <Card className="w-full max-w-lg mx-auto flex flex-col justify-center overflow-hidden relative text-white bg-black min-h-[35vh]">
+        <Card ref={placeholderRef} className="w-full max-w-lg mx-auto flex flex-col justify-center overflow-hidden relative text-white bg-black min-h-[35vh]">
           {isMusicActive ? (
             <>
-              <img src={coverImageUrl} alt="Copertina brano" className="absolute inset-0 w-full h-full object-fit" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
-              <div className="relative z-10 flex flex-col h-full p-6 justify-center text-center">
-                <h2 className="text-2xl font-bold text-shadow-lg">{currentTrack.title || 'Caricamento...'}</h2>
-                <p className="text-sm opacity-80 text-shadow">{playlistId ? "Playlist" : "Brano Singolo"}</p>
+              <div className="w-full aspect-video bg-black/50" />
+              <div className="p-4 bg-gray-900/80 backdrop-blur-sm">
+                 <h2 className="text-xl font-bold truncate">{currentTrack.title || 'Caricamento...'}</h2>
+                 <p className="text-sm opacity-80">{playlistId ? "Playlist" : "Brano Singolo"}</p>
               </div>
             </>
           ) : (
@@ -143,7 +174,6 @@ export const MusicPage: React.FC = () => {
                   Carica
                 </Button>
               </div>
-               {/* MODIFICA: Corretto l'URL di YouTube */}
                <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="block">
                   <Button variant="outline" className="w-full dark:border-red-500/50 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400">
                       <YoutubeIcon size={20} className="mr-2" /> Apri YouTube

@@ -1,40 +1,55 @@
 import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from 'react';
 
+// Interfacce per l'API del Player di YouTube
 interface YouTubePlayer {
   playVideo: () => void;
   pauseVideo: () => void;
+  stopVideo: () => void;
   nextVideo: () => void;
   previousVideo: () => void;
   getPlayerState: () => number;
   getVideoData: () => { title: string; video_id: string };
+  loadVideoById: (videoId: string) => void;
+  loadPlaylist: (playlistOptions: { list: string; listType: 'playlist' }) => void;
+}
+interface PlayerEvent { 
+  target: YouTubePlayer; 
+  data: number; 
 }
 
-// Interfaccia per gli eventi del player
-interface PlayerEvent {
-  target: YouTubePlayer;
-  data: number;
-}
+// Tipi per la libreria RND
+type Position = { x: number; y: number };
+type Size = { width: string | number; height: string | number };
 
 interface MusicContextType {
   videoId: string | null;
   playlistId: string | null;
   currentTrack: { id: string | null; title: string | null };
-  setCurrentTrack: (track: { id: string | null; title: string | null }) => void;
   playTrack: (id: string) => void;
-  playPlaylist: (id: string) => void;
+  playPlaylist: (id:string) => void;
   stopMusic: () => void;
   isPlaying: boolean;
-  setIsPlaying: (isPlaying: boolean) => void;
   playerRef: React.MutableRefObject<YouTubePlayer | null>;
-  decorativePlayerRef: React.MutableRefObject<YouTubePlayer | null>;
   nextTrack: () => void;
   previousTrack: () => void;
-  // NUOVE FUNZIONI ESPORTATE
   handlePlayerStateChange: (event: PlayerEvent) => void;
   handlePlayerError: (event: { data: number }) => void;
+  
+  // STATO PER GESTIRE IL PLAYER DRAGGABLE/RESIZABLE
+  isPlayerMaximized: boolean;
+  setPlayerMaximized: (isMaximized: boolean) => void;
+  playerPosition: Position;
+  setPlayerPosition: (position: Position) => void;
+  playerSize: Size;
+  setPlayerSize: (size: Size) => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
+
+// Valori di default per il mini-player flottante
+const defaultMiniPlayerSize: Size = { width: 320, height: 180 };
+// Posiziona il mini-player in basso a destra, con un po' di margine
+const defaultMiniPlayerPosition: Position = { x: window.innerWidth - 340, y: window.innerHeight - 260 };
 
 export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -42,100 +57,86 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<{ id: string | null; title: string | null }>({ id: null, title: null });
   const playerRef = useRef<YouTubePlayer | null>(null);
-  const decorativePlayerRef = useRef<YouTubePlayer | null>(null);
-
-  const playTrack = (id: string) => {
-    if (videoId === id) {
-      setVideoId(null);
-      setTimeout(() => setVideoId(id), 0);
-    } else {
-      setVideoId(id);
-    }
-    setPlaylistId(null);
-    setIsPlaying(true);
-  };
-
-  const playPlaylist = (id: string) => {
-    setVideoId(null);
-    setIsPlaying(true);
-    if (playlistId === id) {
-      setPlaylistId(null);
-      setTimeout(() => {
-        setPlaylistId(id);
-      }, 0);
-    } else {
-      setPlaylistId(id);
-    }
-  };
   
-  const stopMusic = () => {
-    setVideoId(null);
-    setPlaylistId(null);
-    setIsPlaying(false);
-    setCurrentTrack({ id: null, title: null });
-  };
+  const [isPlayerMaximized, setPlayerMaximized] = useState(false);
+  const [playerPosition, setPlayerPosition] = useState<Position>(defaultMiniPlayerPosition);
+  const [playerSize, setPlayerSize] = useState<Size>(defaultMiniPlayerSize);
 
-  const nextTrack = useCallback(() => {
+  const playTrack = useCallback((id: string) => {
     if (playerRef.current) {
-      playerRef.current.nextVideo();
+      playerRef.current.loadVideoById(id);
     }
+    setVideoId(id);
+    setPlaylistId(null);
   }, []);
 
-  const previousTrack = () => playerRef.current?.previousVideo();
-
-  // NUOVA FUNZIONE: Gestisce gli errori del player
-  // Se il player va in errore (spesso per un video non disponibile o un problema con l'ad),
-  // semplicemente salta alla traccia successiva.
-  const handlePlayerError = useCallback((event: { data: number }) => {
-    console.error(`Youtubeer Error: ${event.data}`);
-    if (playlistId) {
-      console.log("Player in errore, tento di passare alla traccia successiva...");
-      nextTrack();
+  const playPlaylist = useCallback((id: string) => {
+    if (playerRef.current) {
+      playerRef.current.loadPlaylist({ list: id, listType: 'playlist' });
     }
-  }, [playlistId, nextTrack]);
+    setVideoId(null);
+    setPlaylistId(id);
+  }, []);
+  
+  const stopMusic = useCallback(() => {
+    playerRef.current?.stopVideo();
+    setVideoId(null);
+    setPlaylistId(null);
+    setCurrentTrack({ id: null, title: null });
+  }, []);
 
-  // MODIFICA: La logica di gestione dello stato è ora centralizzata qui
+  const nextTrack = useCallback(() => {
+    playerRef.current?.nextVideo();
+  }, []);
+
+  const previousTrack = useCallback(() => {
+    playerRef.current?.previousVideo();
+  }, []);
+
+  const handlePlayerError = useCallback((event: { data: number }) => {
+    console.error(`Youtubeer Error Code: ${event.data}`);
+    if (playlistId) {
+      nextTrack();
+    } else {
+      stopMusic();
+    }
+  }, [playlistId, nextTrack, stopMusic]);
+
   const handlePlayerStateChange = useCallback((event: PlayerEvent) => {
     const playerState = event.data;
-
-    // Stato 0 = Canzone finita. Se siamo in una playlist, andiamo alla successiva.
-    if (playerState === 0 && playlistId) {
-      nextTrack();
-    }
-    // Stato 1 = In Riproduzione. Aggiorniamo le info della traccia corrente.
-    else if (playerState === 1) {
+    if (playerState === 1) { // Playing
       const trackData = event.target.getVideoData();
       if (trackData.video_id) {
         setCurrentTrack({ id: trackData.video_id, title: trackData.title });
       }
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
     }
-  }, [playlistId, nextTrack]);
-
+  }, []);
 
   const value = { 
     videoId, 
     playlistId,
     currentTrack,
-    setCurrentTrack,
     playTrack, 
     playPlaylist,
     stopMusic,
     isPlaying, 
-    setIsPlaying, 
     playerRef, 
-    decorativePlayerRef,
     nextTrack,
     previousTrack,
-    // Esportiamo le nuove funzioni
     handlePlayerStateChange,
-    handlePlayerError
+    handlePlayerError,
+    isPlayerMaximized,
+    setPlayerMaximized,
+    playerPosition,
+    setPlayerPosition,
+    playerSize,
+    setPlayerSize
   };
 
-  return (
-    <MusicContext.Provider value={value}>
-      {children}
-    </MusicContext.Provider>
-  );
+  return <MusicContext.Provider value={value}>{children}</MusicContext.Provider>;
 };
 
 export const useMusic = () => {

@@ -1,6 +1,7 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 import YouTube from 'react-youtube';
+import { Rnd } from 'react-rnd';
 
 // Hooks, Tipi e Servizi
 import { useMusic, MusicProvider } from './contexts/MusicContext';
@@ -10,7 +11,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { RestTimerProvider, useRestTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
-import type { ActionConfig, UserProfile } from './types'; // Assicurati che questo importi da index.ts
+import type { ActionConfig, UserProfile } from './types';
 
 // Componenti e Pagine
 import { Header } from './components/Header';
@@ -28,86 +29,75 @@ import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
+
+// ==================================================================
+// ========= MODIFICA 1: Ridotta la dimensione di default =========
+// ==================================================================
+const defaultMiniPlayerSize = { width: 240, height: 135 };
+const defaultMiniPlayerPosition = { x: window.innerWidth - 260, y: window.innerHeight - 215 };
+
+
 function MainAppLayout() {
   const { 
-    isPlaying, 
-    setIsPlaying, 
     videoId, 
     playlistId, 
     playerRef, 
-    decorativePlayerRef,
     handlePlayerStateChange,
-    handlePlayerError
+    handlePlayerError,
+    isPlayerMaximized,
+    playerPosition,
+    setPlayerPosition,
+    playerSize,
+    setPlayerSize,
+    isPlaying,
+    playTrack,
+    playPlaylist
   } = useMusic();
+
+  const miniPlayerStateRef = useRef({ position: defaultMiniPlayerPosition, size: defaultMiniPlayerSize });
+
+  useEffect(() => {
+    if (!isPlayerMaximized) {
+      setPlayerPosition(miniPlayerStateRef.current.position);
+      setPlayerSize(miniPlayerStateRef.current.size);
+    }
+  }, [isPlayerMaximized, setPlayerPosition, setPlayerSize]);
 
   const { registeredAction } = usePageAction();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
-  
   const { isTimerActive, isAlarming } = useRestTimer();
   const currentPath = location.pathname;
 
   const handleTogglePlay = useCallback(() => {
-    const mainPlayer = playerRef.current;
-    const decorativePlayer = decorativePlayerRef.current;
-    if (!mainPlayer) return;
-    if (isPlaying) {
-      mainPlayer.pauseVideo();
-      if (decorativePlayer) decorativePlayer.pauseVideo();
+    if (!playerRef.current) return;
+    const playerState = playerRef.current.getPlayerState();
+    if (playerState === 1) {
+      playerRef.current.pauseVideo();
     } else {
-      mainPlayer.playVideo();
-      if (decorativePlayer) decorativePlayer.playVideo();
+      playerRef.current.playVideo();
     }
-  }, [isPlaying, playerRef, decorativePlayerRef]);
+  }, [playerRef]);
   
-  // ==================================================================
-  // ========= INIZIO DELLA MODIFICA: Funzione Corretta =========
-  // ==================================================================
   const handleCompleteOnboarding = useCallback(async (formData: UserProfile) => {
     if (!user) return;
     try {
-      // 1. DEFINIZIONE CHIAVI CORRETTA BASATA SU `index.ts`
-      // Questa lista ora riflette esattamente le proprietà definite nella tua interfaccia UserProfile.
       const profileKeys: (keyof UserProfile)[] = [
-        'plan',
-        'gender',
-        'age',
-        'height',
-        'weight',
-        'goal',
-        'experience',
-        'frequency',
-        'duration',
-        'equipment',
-        'lifestyle',
-        'injuries',
-        'pathologies',
-        'mobility_issues',
-        'favoritePlaylists'
+        'plan','gender','age','height','weight','goal','experience','frequency','duration','equipment','lifestyle','injuries','pathologies','mobility_issues','favoritePlaylists'
       ];
-
-      // 2. CREAZIONE DELL'OGGETTO "PULITO" IN MODO TYPE-SAFE
-      // Questo approccio filtra l'oggetto ricevuto dal form, mantenendo solo le chiavi 
-      // valide e i cui valori non sono `undefined`, risolvendo gli errori di build.
       const profileToSave = Object.fromEntries(
         Object.entries(formData).filter(([key, value]) => 
             profileKeys.includes(key as keyof UserProfile) && value !== undefined
         )
       );
-      
-      // 3. SALVATAGGIO DEI DATI PULITI
       await updateUserProfile(user.uid, profileToSave);
-
     } catch (error)      {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
     } finally {
       setIsOnboardingModalOpen(false);
     }
   }, [user]);
-  // ==================================================================
-  // ============= FINE DELLA MODIFICA =============
-  // ==================================================================
   
   const actionConfig: ActionConfig = useMemo(() => {
     if (currentPath === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
@@ -116,17 +106,39 @@ function MainAppLayout() {
     return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId && !playlistId };
   }, [currentPath, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
 
-  const shouldRenderPlayer = videoId || playlistId;
-  const playerOptions = {
-    height: '0',
-    width: '0',
-    playerVars: {
-      autoplay: 1,
-      ...(playlistId && {
-        listType: 'playlist',
-        list: playlistId,
-      }),
-    },
+  const shouldRenderPlayer = !!(videoId || playlistId);
+  const playerOptions = { height: '100%', width: '100%', playerVars: { autoplay: 1 as const } };
+
+  const YouTubePlayerComponent = useMemo(() => (
+    <YouTube
+      opts={playerOptions}
+      onReady={(event) => { 
+        playerRef.current = event.target;
+        if (playlistId) playPlaylist(playlistId);
+        else if (videoId) playTrack(videoId);
+      }}
+      onStateChange={handlePlayerStateChange}
+      onError={handlePlayerError}
+      className="w-full h-full"
+    />
+  ), [playerRef, handlePlayerStateChange, handlePlayerError, videoId, playlistId, playTrack, playPlaylist]);
+
+  // =======================================================================
+  // === MODIFICA 2: Configurazione esplicita per il ridimensionamento ===
+  // =======================================================================
+  const resizeHandleClasses = {
+      bottomRight: 'w-4 h-4 -right-1 -bottom-1 absolute cursor-se-resize' // Esempio per personalizzare la maniglia
+  };
+
+  const resizingConfig = {
+      top: !isPlayerMaximized,
+      right: !isPlayerMaximized,
+      bottom: !isPlayerMaximized,
+      left: !isPlayerMaximized,
+      topRight: !isPlayerMaximized,
+      bottomRight: !isPlayerMaximized,
+      bottomLeft: !isPlayerMaximized,
+      topLeft: !isPlayerMaximized,
   };
 
   return (
@@ -140,19 +152,36 @@ function MainAppLayout() {
       <svg style={{ position: 'absolute', height: 0, width: 0 }}><defs><filter id="remove-white-bg-filter"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -255 -255 -255 0 255" result="mask"/><feComposite in="SourceGraphic" in2="mask" operator="out" /></filter></defs></svg>
       
       {shouldRenderPlayer && (
-        <div style={{ position: 'absolute', top: -9999, left: -9999 }}>
-          <YouTube
-            key={playlistId ? `p-${playlistId}` : `v-${videoId}`}
-            videoId={videoId || undefined}
-            opts={playerOptions}
-            onReady={(event) => { playerRef.current = event.target; }}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnd={() => setIsPlaying(false)}
-            onStateChange={handlePlayerStateChange}
-            onError={handlePlayerError}
-          />
-        </div>
+        <Rnd
+          size={playerSize}
+          position={playerPosition}
+          onDragStop={(e, d) => {
+            const newPos = { x: d.x, y: d.y };
+            setPlayerPosition(newPos);
+            if (!isPlayerMaximized) {
+              miniPlayerStateRef.current.position = newPos;
+            }
+          }}
+          onResizeStop={(e, direction, ref, delta, position) => {
+            const newSize = { width: ref.style.width, height: ref.style.height };
+            setPlayerSize(newSize);
+            setPlayerPosition(position);
+            if (!isPlayerMaximized) {
+              miniPlayerStateRef.current.size = newSize;
+              miniPlayerStateRef.current.position = position;
+            }
+          }}
+          minWidth={240}
+          minHeight={135}
+          lockAspectRatio={true}
+          disableDragging={isPlayerMaximized}
+          enableResizing={resizingConfig} // <-- Utilizziamo la configurazione esplicita
+          resizeHandleClasses={resizeHandleClasses} // Opzionale: per stilizzare le maniglie
+          className={`z-50 shadow-lg rounded-lg overflow-hidden transition-all duration-300 ${isPlayerMaximized ? 'rounded-none shadow-none' : 'border-2 border-primary'}`}
+          style={{ transition: isPlayerMaximized ? 'width 0.3s ease, height 0.3s ease, transform 0.3s ease' : 'none' }}
+        >
+          {YouTubePlayerComponent}
+        </Rnd>
       )}
       
       <OnboardingModal
