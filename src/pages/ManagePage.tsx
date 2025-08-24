@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-// MODIFICA: Rimuoviamo l'icona Wand2 non più utilizzata
 import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Archive } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
@@ -19,7 +18,8 @@ import type { Workout, WorkoutData } from '../types';
 export const ManagePage: React.FC = () => {
   const { workouts, isLoading, addWorkout, deleteWorkout, updateWorkout, activeWorkout, setActiveWorkout } = useWorkouts();
   const { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme } = useTheme();
-  const { restTime, setRestTime, autoRestTimer, setAutoRestTimer } = useSettings();
+  // MODIFICA: Recuperiamo i due nuovi valori e i loro setter
+  const { restTimePrimary, setRestTimePrimary, restTimeSecondary, setRestTimeSecondary, autoRestTimer, setAutoRestTimer } = useSettings();
   const { registerAction } = usePageAction();
   const { user } = useAuth();
   
@@ -55,6 +55,7 @@ export const ManagePage: React.FC = () => {
     }
   };
 
+  // ... (tutte le altre funzioni rimangono invariate) ...
   const handleDeleteWithConfirmation = (workoutId: string, workoutName: string) => {
     const isConfirmed = window.confirm(`Sei sicuro di voler eliminare la scheda "${workoutName}"? Questa azione è irreversibile.`);
     if (isConfirmed) {
@@ -181,8 +182,6 @@ export const ManagePage: React.FC = () => {
     }
   };
 
-  // MODIFICA: La funzione handleOptimizeAIClick non è più necessaria e viene rimossa.
-
   return (
     <div className="container mx-auto p-4 space-y-6">
       <Card>
@@ -197,6 +196,7 @@ export const ManagePage: React.FC = () => {
       <Card>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette /> Impostazioni</h2>
         <div className="space-y-4 divide-y divide-gray-200 dark:divide-gray-700">
+          {/* ... (impostazioni di tema, colore, tonalità rimangono invariate) ... */}
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Modalità</label>
             <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{theme === 'light' ? <Moon /> : <Sun />}</button>
@@ -225,10 +225,17 @@ export const ManagePage: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {/* MODIFICA: Aggiunti due slider per i due tempi di riposo */}
           <div className="pt-4 first:pt-0 flex flex-col gap-2">
-            <label htmlFor="rest-time" className="font-medium flex justify-between"><span>Tempo di Riposo</span><span className="font-mono text-sm">{restTime}s</span></label>
-            <input id="rest-time" type="range" min="30" max="180" step="15" value={restTime} onChange={(e) => setRestTime(Number(e.target.value))} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary" />
+            <label htmlFor="rest-time-primary" className="font-medium flex justify-between"><span>Riposo Principale (es. Isolamento)</span><span className="font-mono text-sm">{restTimePrimary}s</span></label>
+            <input id="rest-time-primary" type="range" min="30" max="180" step="15" value={restTimePrimary} onChange={(e) => setRestTimePrimary(Number(e.target.value))} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary" />
           </div>
+          <div className="pt-4 first:pt-0 flex flex-col gap-2">
+            <label htmlFor="rest-time-secondary" className="font-medium flex justify-between"><span>Riposo Secondario (es. Multiarticolari)</span><span className="font-mono text-sm">{restTimeSecondary}s</span></label>
+            <input id="rest-time-secondary" type="range" min="30" max="180" step="15" value={restTimeSecondary} onChange={(e) => setRestTimeSecondary(Number(e.target.value))} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary" />
+          </div>
+          
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label htmlFor="auto-timer" className="font-medium flex items-center gap-2"><Timer size={16}/> Avvio Automatico Timer</label>
             <Switch
@@ -242,6 +249,8 @@ export const ManagePage: React.FC = () => {
           </div>
         </div>
       </Card>
+      
+      {/* ... (il resto del componente rimane invariato) ... */}
       <div>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <div><h1 className="text-3xl font-bold">Le Tue Schede</h1><p className="text-gray-500 dark:text-gray-400">Seleziona una scheda da attivare, oppure creane una nuova.</p></div>
@@ -263,7 +272,6 @@ export const ManagePage: React.FC = () => {
             <div className="flex items-center justify-between mt-4 gap-2">
               <Button onClick={() => setActiveWorkout(workout.id)} variant={activeWorkout?.id === workout.id ? "default" : "secondary"} className={`flex-1 ${activeWorkout?.id === workout.id ? activeTheme.bgClass + ' text-white' : ''}`}><CheckCircle size={16}/> {activeWorkout?.id === workout.id ? 'Attiva' : 'Seleziona'}</Button>
               <div className="flex">
-                {/* BOTTONE "OTTIMIZZA CON AI" RIMOSSO COME RICHIESTO */}
                 <button onClick={() => handleExportWorkout(workout)} className="p-2 text-gray-500 hover:text-green-500" title="Esporta in JSON"><Download size={18} /></button>
                 <button onClick={() => handleOpenModal(workout)} className="p-2 text-gray-500 hover:text-blue-500" title="Modifica"><Edit size={18} /></button>
                 <button onClick={() => handleDeleteWithConfirmation(workout.id, workout.name)} className="p-2 text-gray-500 hover:text-red-500" title="Elimina"><Trash2 size={18} /></button>

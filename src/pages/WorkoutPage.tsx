@@ -15,17 +15,17 @@ import type { Exercise, SetPerformance } from '../types';
 
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
-    const { restTime, autoRestTimer } = useSettings();
+    // MODIFICA: Recuperiamo entrambi i tempi di riposo
+    const { restTimePrimary, restTimeSecondary, autoRestTimer } = useSettings();
     const { registerAction } = usePageAction();
     const { activeTheme } = useTheme();
     const { startTimer } = useRestTimer();
 
-    // MODIFICA 1: Aggiorniamo il tipo dello stato per includere l'indice dell'esercizio
     const [logModalState, setLogModalState] = useState<{
         isOpen: boolean;
         ex?: Exercise;
         setIndex?: number;
-        exerciseIndex?: number; // <-- AGGIUNTO
+        exerciseIndex?: number;
     }>({ isOpen: false });
 
     const [currentExIndex, setCurrentExIndex] = useState(0);
@@ -41,12 +41,11 @@ export const WorkoutPage: React.FC = () => {
             const nextSetIndex = currentVisibleExercise.performance?.length || 0;
             const totalSets = currentVisibleExercise.type === 'strength' ? (currentVisibleExercise.sets || 0) : 1;
             if (nextSetIndex < totalSets) {
-                // MODIFICA 2: Quando registriamo l'azione, salviamo anche l'indice dell'esercizio corrente
                 const action = () => setLogModalState({
                     isOpen: true,
                     ex: currentVisibleExercise,
                     setIndex: nextSetIndex,
-                    exerciseIndex: currentExIndex // <-- AGGIUNTO
+                    exerciseIndex: currentExIndex
                 });
                 registerAction(action);
             } else {
@@ -59,20 +58,14 @@ export const WorkoutPage: React.FC = () => {
     }, [currentExIndex, activeWorkout, registerAction]);
 
     const handleSavePerformance = async (performance: SetPerformance) => {
-        // MODIFICA 3: Recuperiamo l'indice direttamente dallo stato della modale
         const { ex: exerciseToUpdate, setIndex: setIndexToUpdate, exerciseIndex: exerciseIndexToUpdate } = logModalState;
 
         if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined || exerciseIndexToUpdate === undefined) return;
 
         const updatedExercises = [...activeWorkout.exercises];
-
-        // La vecchia ricerca con findIndex (causa del bug) è stata rimossa.
-        // const exerciseIndexInWorkout = updatedExercises.findIndex(ex => ex.name === exerciseToUpdate.name);
-
         const newPerformance = [...(exerciseToUpdate.performance || [])];
         newPerformance[setIndexToUpdate] = performance;
         
-        // Usiamo l'indice corretto per aggiornare l'esercizio giusto nell'array
         updatedExercises[exerciseIndexToUpdate] = { ...exerciseToUpdate, performance: newPerformance };
 
         try {
@@ -80,16 +73,22 @@ export const WorkoutPage: React.FC = () => {
                 exercises: updatedExercises,
                 _lastUpdated: new Date(),
             });
+
+            // MODIFICA: Logica per avviare il timer corretto
+            if (autoRestTimer && updatedExercises[exerciseIndexToUpdate].type === 'strength') {
+                const currentExercise = updatedExercises[exerciseIndexToUpdate];
+                // Seleziona il tempo secondario se specificato, altrimenti usa il primario come default
+                const duration = currentExercise.restTimerType === 'secondary' ? restTimeSecondary : restTimePrimary;
+                startTimer(duration);
+            }
+
         } catch (error) {
             console.error("ERRORE durante la chiamata a updateWorkout:", error);
             throw error;
         }
-
-        if (autoRestTimer) {
-            startTimer(restTime);
-        }
     };
 
+    // ... (tutto il resto del file rimane invariato) ...
     const handleUndoLastSet = () => {
         if (!activeWorkout) return;
         const exerciseToUpdate = activeWorkout.exercises[currentExIndex];

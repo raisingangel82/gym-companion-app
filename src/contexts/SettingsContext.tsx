@@ -1,8 +1,11 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
+// MODIFICA: Aggiornata l'interfaccia per includere due timer
 interface SettingsContextType {
-  restTime: number;
-  setRestTime: (time: number) => void;
+  restTimePrimary: number;
+  setRestTimePrimary: (time: number) => void;
+  restTimeSecondary: number;
+  setRestTimeSecondary: (time: number) => void;
   autoRestTimer: boolean;
   setAutoRestTimer: (enabled: boolean) => void;
 }
@@ -10,9 +13,15 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  const [restTime, setRestTimeState] = useState<number>(() => {
-    const saved = localStorage.getItem('settings_restTime');
-    return saved ? JSON.parse(saved) : 60;
+  // MODIFICA: Sostituito restTime con restTimePrimary e restTimeSecondary
+  const [restTimePrimary, setRestTimePrimaryState] = useState<number>(() => {
+    const saved = localStorage.getItem('settings_restTimePrimary');
+    return saved ? JSON.parse(saved) : 90; // Default per il primario
+  });
+
+  const [restTimeSecondary, setRestTimeSecondaryState] = useState<number>(() => {
+    const saved = localStorage.getItem('settings_restTimeSecondary');
+    return saved ? JSON.parse(saved) : 120; // Default per il secondario
   });
 
   const [autoRestTimer, setAutoRestTimerState] = useState<boolean>(() => {
@@ -20,18 +29,32 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     return saved ? JSON.parse(saved) : true;
   });
 
+  // MODIFICA: Effetti per salvare entrambi i valori nel localStorage
   useEffect(() => {
-    localStorage.setItem('settings_restTime', JSON.stringify(restTime));
-  }, [restTime]);
+    localStorage.setItem('settings_restTimePrimary', JSON.stringify(restTimePrimary));
+  }, [restTimePrimary]);
+
+  useEffect(() => {
+    localStorage.setItem('settings_restTimeSecondary', JSON.stringify(restTimeSecondary));
+  }, [restTimeSecondary]);
 
   useEffect(() => {
     localStorage.setItem('settings_autoRestTimer', JSON.stringify(autoRestTimer));
   }, [autoRestTimer]);
-
-  const setRestTime = (time: number) => setRestTimeState(time);
+  
+  // MODIFICA: Aggiornate le funzioni e il valore del contesto
+  const setRestTimePrimary = (time: number) => setRestTimePrimaryState(time);
+  const setRestTimeSecondary = (time: number) => setRestTimeSecondaryState(time);
   const setAutoRestTimer = (enabled: boolean) => setAutoRestTimerState(enabled);
 
-  const value = { restTime, setRestTime, autoRestTimer, setAutoRestTimer };
+  const value = { 
+    restTimePrimary, 
+    setRestTimePrimary, 
+    restTimeSecondary, 
+    setRestTimeSecondary, 
+    autoRestTimer, 
+    setAutoRestTimer 
+  };
 
   return (
     <SettingsContext.Provider value={value}>

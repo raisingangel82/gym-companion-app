@@ -27,13 +27,16 @@ export interface SetPerformance {
  */
 export interface Exercise {
   name: string;
-  type: 'strength' | 'cardio'; // <-- Campo per distinguere il tipo di esercizio
+  type: 'strength' | 'cardio';
   imageUrl?: string;
 
   // Proprietà per la forza
   sets?: number;
   reps?: string;
   weight?: number;
+  
+  // MODIFICA: Aggiunto campo per selezionare il tipo di timer
+  restTimerType?: 'primary' | 'secondary';
 
   // Proprietà per il cardio (i target)
   duration?: number; // in minuti
@@ -63,7 +66,7 @@ export interface WorkoutData {
   exercises: Exercise[];
   createdAt: Date;
   history: WorkoutSession[];
-  _lastUpdated?: Date; // <-- AGGIUNGI QUESTA RIGA
+  _lastUpdated?: Date;
 }
 
 /** Definisce una scheda di allenamento con il suo ID del database. */
@@ -73,7 +76,6 @@ export interface Workout extends WorkoutData {
 
 // --- Tipi per l'Utente ---
 
-// MODIFICA: Aggiunto il nuovo tipo per le playlist preferite
 export interface FavoritePlaylist {
   name: string;
   url: string;
@@ -95,7 +97,6 @@ export interface UserProfile {
   injuries?: string;
   pathologies?: string;
   mobility_issues?: string;
-  // MODIFICA: Aggiunta la proprietà per le playlist preferite
   favoritePlaylists?: FavoritePlaylist[];
 }
 

@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown, Timer } from 'lucide-react'; // MODIFICA: Aggiunta icona Timer
 import { ExerciseFinder } from './ExerciseFinder';
 import { useTheme } from '../contexts/ThemeContext';
 import type { Workout, WorkoutData, Exercise } from '../types';
@@ -23,11 +23,16 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   useEffect(() => {
     if (isOpen) {
       setName(workout?.name || '');
-      setExercises(workout?.exercises.length ? workout.exercises : [{ name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0 }]);
+      // MODIFICA: Assicuriamo che ogni esercizio abbia un restTimerType di default
+      const initialExercises = workout?.exercises.length 
+        ? workout.exercises.map(ex => ({ ...ex, restTimerType: ex.restTimerType || 'primary' }))
+        : [{ name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }];
+      setExercises(initialExercises);
       setFindingImageForIndex(null);
     }
   }, [isOpen, workout]);
   
+  // ... (useEffect per overflow e altre funzioni rimangono invariate) ...
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -47,9 +52,11 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       if (value === 'strength') {
         exercise.duration = undefined; exercise.speed = undefined; exercise.level = undefined;
         exercise.sets = 3; exercise.reps = '8-12';
+        exercise.restTimerType = exercise.restTimerType || 'primary'; // Assegna default se cambia tipo
       } else {
         exercise.sets = undefined; exercise.reps = undefined; exercise.weight = undefined;
         exercise.duration = 20;
+        exercise.restTimerType = undefined; // Rimuovi per cardio
       }
     }
     (exercise as any)[field] = value;
@@ -63,7 +70,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   };
 
   const addExercise = () => {
-    setExercises([...exercises, { name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0 }]);
+    setExercises([...exercises, { name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }]);
   };
 
   const removeExercise = (index: number) => {
@@ -84,7 +91,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
 
     const finalizedExercises = validExercises.map(ex => {
-      const baseExercise = {
+      const baseExercise: Partial<Exercise> = { // Usiamo Partial per i campi base
         name: ex.name!,
         type: ex.type || 'strength',
         imageUrl: ex.imageUrl || null,
@@ -94,7 +101,8 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       if (baseExercise.type === 'cardio') {
         return { ...baseExercise, duration: ex.duration || 0, speed: ex.speed || 0, level: ex.level || 0 };
       } else {
-        return { ...baseExercise, sets: ex.sets || 0, reps: ex.reps || '0', weight: ex.weight || 0 };
+        // MODIFICA: Aggiungiamo il salvataggio del restTimerType
+        return { ...baseExercise, sets: ex.sets || 0, reps: ex.reps || '0', weight: ex.weight || 0, restTimerType: ex.restTimerType || 'primary' };
       }
     }) as Exercise[];
 
@@ -109,6 +117,8 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     
     onSave(workoutDataToSave);
   };
+
+  const selectClassName = "bg-gray-200 dark:bg-gray-600 rounded-md p-2 text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-500";
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -125,8 +135,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                 </header>
                 
                 <main className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-                   {/* Nome Scheda Input */}
-                  <div>
+                   <div>
                     <label htmlFor="workout-name-editor" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome Scheda</label>
                     <Input id="workout-name-editor" value={name} onChange={(e) => setName(e.target.value)} placeholder="Es. Giorno A - Spinta" />
                   </div>
@@ -136,7 +145,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                       <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
                         <div className="flex items-center gap-2">
                            <Input value={ex.name ?? ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
-                           <select value={ex.type || 'strength'} onChange={(e) => handleExerciseChange(index, 'type', e.target.value)} className="bg-gray-200 dark:bg-gray-600 rounded-md p-2 text-sm text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-500">
+                           <select value={ex.type || 'strength'} onChange={(e) => handleExerciseChange(index, 'type', e.target.value)} className={selectClassName}>
                              <option value="strength">Forza</option>
                              <option value="cardio">Cardio</option>
                            </select>
@@ -154,10 +163,23 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                              <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-4 gap-2"> {/* MODIFICA: griglia a 4 colonne */}
                             <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
                             <Input value={ex.reps ?? ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
                             <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
+                            {/* MODIFICA: Aggiunto selettore per il tipo di timer */}
+                            <div className="relative">
+                               <Timer size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                               <select 
+                                 value={ex.restTimerType || 'primary'} 
+                                 onChange={(e) => handleExerciseChange(index, 'restTimerType', e.target.value as 'primary' | 'secondary')} 
+                                 className={`${selectClassName} w-full pl-8`}
+                                 title="Seleziona tipo di riposo"
+                               >
+                                 <option value="primary">Principale</option>
+                                 <option value="secondary">Secondario</option>
+                               </select>
+                            </div>
                           </div>
                         )}
                         {findingImageForIndex === index && (
@@ -171,12 +193,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
                       </div>
                     ))}
                   </div>
-                   {/* MODIFICA: Aggiunte classi per rendere il bottone visibile in tema scuro */}
-                   <Button 
-                     onClick={addExercise} 
-                     variant="outline" 
-                     className="w-full dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
-                   >
+                   <Button onClick={addExercise} variant="outline" className="w-full dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700">
                     <PlusCircle size={16} className="mr-2" /> Aggiungi Esercizio
                   </Button>
                 </main>
