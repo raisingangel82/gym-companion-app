@@ -26,14 +26,15 @@ interface ChartDataPoint {
 
 const getMuscleGroupForExercise = (exerciseName: string): string => {
   const normalizedName = exerciseName.toLowerCase().trim();
+  // MODIFICA: Ho aggiunto nuove parole chiave per categorizzare più esercizi
   const map: Record<string, string> = {
     'panca': 'Petto', 'bench press': 'Petto', 'chest press': 'Petto', 'croci': 'Petto', 'push up': 'Petto',
     'trazioni': 'Dorsali', 'lat machine': 'Dorsali', 'rematore': 'Dorsali', 'pull down': 'Dorsali', 'pulley': 'Dorsali', 'vertical traction': 'Dorsali',
-    'squat': 'Gambe', 'leg press': 'Gambe', 'affondi': 'Gambe', 'leg extension': 'Gambe', 'leg curl': 'Gambe', 'stacco': 'Gambe', 'deadlift': 'Gambe',
-    'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle',
+    'squat': 'Gambe', 'leg press': 'Gambe', 'affondi': 'Gambe', 'leg extension': 'Gambe', 'leg curl': 'Gambe', 'stacco': 'Gambe', 'deadlift': 'Gambe', 'hip thrust': 'Gambe', 'step up': 'Gambe',
+    'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle', 'face pull': 'Spalle',
     'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti',
     'curl': 'Bicipiti',
-    'crunch': 'Addome', 'plank': 'Addome',
+    'crunch': 'Addome', 'plank': 'Addome', 'leg raise': 'Addome', 'twist': 'Addome',
   };
 
   for (const key in map) {
