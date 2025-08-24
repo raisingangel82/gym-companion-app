@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Stili per la scrollbar personalizzata */
-/* Funziona su browser basati su WebKit (Chrome, Safari, Edge) */
+/* Stili per la scrollbar personalizzata (invariati) */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -13,13 +12,35 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #4a5568; /* Grigio scuro per la thumb */
+  background-color: #4a5568;
   border-radius: 10px;
-  border: 2px solid #1a202c; /* Colore di sfondo per creare un effetto "fluttuante" */
+  border: 2px solid #1a202c;
 }
 
-/* Stili per la scrollbar in modalità scura */
 .dark ::-webkit-scrollbar-thumb {
-  background-color: #a0aec0; /* Grigio chiaro per la thumb */
+  background-color: #a0aec0;
   border-color: #2d3748;
+}
+
+/* --- Stili per il Player Musicale (Logica appendChild) --- */
+
+/* Queste classi vengono applicate al contenitore del player che viene spostato nel DOM.
+  Il loro unico scopo è fare in modo che il contenitore occupi tutto lo spazio
+  del suo elemento genitore (che sia il target nella MusicPage o nella MusicBar).
+*/
+.full-player,
+.mini-player {
+  width: 100%;
+  height: 100%;
+}
+
+/*
+  Queste regole forzano il contenitore generato dalla libreria react-youtube
+  e l'iframe del video al suo interno a riempire al 100% il loro contenitore
+  (.full-player o .mini-player), rendendo il video visibile e correttamente dimensionato.
+*/
+.youtube-container,
+.youtube-container iframe {
+  width: 100%;
+  height: 100%;
 }

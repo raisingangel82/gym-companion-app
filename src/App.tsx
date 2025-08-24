@@ -1,7 +1,5 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
-import YouTube from 'react-youtube';
-import { Rnd } from 'react-rnd';
 
 // Hooks, Tipi e Servizi
 import { useMusic, MusicProvider } from './contexts/MusicContext';
@@ -16,6 +14,7 @@ import type { ActionConfig, UserProfile } from './types';
 // Componenti e Pagine
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
+import { MusicBar } from './components/MusicBar'; // Il nostro componente ora persistente
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UpdatePrompt } from './components/UpdatePrompt';
@@ -29,36 +28,13 @@ import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
 import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
-// Valori di default iniziali per il mini-player
-const defaultMiniPlayerSize = { width: 240, height: 135 };
-const defaultMiniPlayerPosition = { x: window.innerWidth - 260, y: window.innerHeight - 215 };
-
 function MainAppLayout() {
   const { 
     videoId, 
     playlistId, 
     playerRef, 
-    handlePlayerStateChange,
-    handlePlayerError,
-    isPlayerMaximized,
-    playerPosition,
-    setPlayerPosition,
-    playerSize,
-    setPlayerSize,
     isPlaying,
-    playTrack,
-    playPlaylist
   } = useMusic();
-
-  const miniPlayerStateRef = useRef({ position: defaultMiniPlayerPosition, size: defaultMiniPlayerSize });
-
-  useEffect(() => {
-    if (!isPlayerMaximized) {
-      setPlayerPosition(miniPlayerStateRef.current.position);
-      setPlayerSize(miniPlayerStateRef.current.size);
-    }
-  }, [isPlayerMaximized, setPlayerPosition, setPlayerSize]);
-
   const { registeredAction } = usePageAction();
   const location = useLocation();
   const { user, logout } = useAuth();
@@ -88,7 +64,7 @@ function MainAppLayout() {
         )
       );
       await updateUserProfile(user.uid, profileToSave);
-    } catch (error)      {
+    } catch (error) {
       console.error("Salvataggio del profilo fallito in MainAppLayout:", error);
     } finally {
       setIsOnboardingModalOpen(false);
@@ -102,73 +78,18 @@ function MainAppLayout() {
     return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId && !playlistId };
   }, [currentPath, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
 
-  const shouldRenderPlayer = !!(videoId || playlistId);
-  const playerOptions = { height: '100%', width: '100%', playerVars: { autoplay: 1 as const } };
-
-  const YouTubePlayerComponent = useMemo(() => (
-    <YouTube
-      opts={playerOptions}
-      onReady={(event) => { 
-        playerRef.current = event.target;
-        if (playlistId) playPlaylist(playlistId);
-        else if (videoId) playTrack(videoId);
-      }}
-      onStateChange={handlePlayerStateChange}
-      onError={handlePlayerError}
-      className="w-full h-full"
-    />
-  ), [playerRef, handlePlayerStateChange, handlePlayerError, videoId, playlistId, playTrack, playPlaylist]);
-  
-  const resizingConfig = {
-      top: !isPlayerMaximized, right: !isPlayerMaximized, bottom: !isPlayerMaximized, left: !isPlayerMaximized,
-      topRight: !isPlayerMaximized, bottomRight: !isPlayerMaximized, bottomLeft: !isPlayerMaximized, topLeft: !isPlayerMaximized,
-  };
-
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
+      
+      {/* La MusicBar viene renderizzata qui. Sarà lei stessa a decidere se mostrarsi o meno. */}
+      <MusicBar />
+
       <main className="flex-1 overflow-y-auto pb-24">
         <Outlet />
       </main>
+      
       <BottomBar actionConfig={actionConfig} />
-      
-      <svg style={{ position: 'absolute', height: 0, width: 0 }}><defs><filter id="remove-white-bg-filter"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 -255 -255 -255 0 255" result="mask"/><feComposite in="SourceGraphic" in2="mask" operator="out" /></filter></defs></svg>
-      
-      {shouldRenderPlayer && (
-        <Rnd
-          size={playerSize}
-          position={playerPosition}
-          onDragStop={(_e, d) => { // <-- CORREZIONE: 'e' ignorato
-            const newPos = { x: d.x, y: d.y };
-            setPlayerPosition(newPos);
-            if (!isPlayerMaximized) {
-              miniPlayerStateRef.current.position = newPos;
-            }
-          }}
-          onResizeStop={(_e, _direction, ref, _delta, position) => { // <-- CORREZIONE: parametri ignorati
-            // CORREZIONE: convertiamo le stringhe "px" in numeri
-            const newSize = { 
-              width: parseInt(ref.style.width, 10), 
-              height: parseInt(ref.style.height, 10) 
-            };
-            setPlayerSize(newSize);
-            setPlayerPosition(position);
-            if (!isPlayerMaximized) {
-              miniPlayerStateRef.current.size = newSize;
-              miniPlayerStateRef.current.position = position;
-            }
-          }}
-          minWidth={240}
-          minHeight={135}
-          lockAspectRatio={true}
-          disableDragging={isPlayerMaximized}
-          enableResizing={resizingConfig}
-          className={`z-50 shadow-lg rounded-lg overflow-hidden transition-all duration-300 ${isPlayerMaximized ? 'rounded-none shadow-none' : 'border-2 border-primary'}`}
-          style={{ transition: isPlayerMaximized ? 'width 0.3s ease, height 0.3s ease, transform 0.3s ease' : 'none' }}
-        >
-          {YouTubePlayerComponent}
-        </Rnd>
-      )}
       
       <OnboardingModal
         isOpen={isOnboardingModalOpen}

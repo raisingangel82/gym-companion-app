@@ -17,10 +17,6 @@ interface PlayerEvent {
   data: number; 
 }
 
-// Tipi per la libreria RND - CORREZIONE: usiamo solo number
-type Position = { x: number; y: number };
-type Size = { width: number; height: number };
-
 interface MusicContextType {
   videoId: string | null;
   playlistId: string | null;
@@ -34,19 +30,9 @@ interface MusicContextType {
   previousTrack: () => void;
   handlePlayerStateChange: (event: PlayerEvent) => void;
   handlePlayerError: (event: { data: number }) => void;
-  
-  isPlayerMaximized: boolean;
-  setPlayerMaximized: (isMaximized: boolean) => void;
-  playerPosition: Position;
-  setPlayerPosition: (position: Position) => void;
-  playerSize: Size;
-  setPlayerSize: (size: Size) => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
-
-const defaultMiniPlayerSize: Size = { width: 240, height: 135 };
-const defaultMiniPlayerPosition: Position = { x: window.innerWidth - 260, y: window.innerHeight - 215 };
 
 export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -54,10 +40,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<{ id: string | null; title: string | null }>({ id: null, title: null });
   const playerRef = useRef<YouTubePlayer | null>(null);
-  
-  const [isPlayerMaximized, setPlayerMaximized] = useState(false);
-  const [playerPosition, setPlayerPosition] = useState<Position>(defaultMiniPlayerPosition);
-  const [playerSize, setPlayerSize] = useState<Size>(defaultMiniPlayerSize);
 
   const playTrack = useCallback((id: string) => {
     if (playerRef.current) playerRef.current.loadVideoById(id);
@@ -99,11 +81,18 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const value = { 
-    videoId, playlistId, currentTrack, playTrack, playPlaylist, stopMusic,
-    isPlaying, playerRef, nextTrack, previousTrack,
-    handlePlayerStateChange, handlePlayerError,
-    isPlayerMaximized, setPlayerMaximized, playerPosition, setPlayerPosition,
-    playerSize, setPlayerSize
+    videoId, 
+    playlistId, 
+    currentTrack, 
+    playTrack, 
+    playPlaylist, 
+    stopMusic,
+    isPlaying, 
+    playerRef, 
+    nextTrack, 
+    previousTrack,
+    handlePlayerStateChange, 
+    handlePlayerError
   };
 
   return <MusicContext.Provider value={value}>{children}</MusicContext.Provider>;
