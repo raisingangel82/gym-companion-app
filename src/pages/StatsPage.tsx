@@ -90,7 +90,6 @@ export const StatsPage: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const aggregatedStats = useMemo(() => {
-    // ... nessuna modifica qui, la logica di calcolo per i grafici è corretta ...
     const stats: Record<string, Record<string, number>> = {};
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
@@ -157,13 +156,12 @@ export const StatsPage: React.FC = () => {
 
     try {
         const functions = getFunctions(getApp(), 'europe-west1');
-        const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport');
+
+        // MODIFICA RICHIESTA: Aggiunta l'opzione di timeout per estendere l'attesa a 3 minuti
+        const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport', { timeout: 180000 });
         
         const userProfile = { goal: user.goal, injuries: user.injuries };
         
-        // ================================================================================================
-        // MODIFICA: Creiamo il payload e lo sanifichiamo prima di inviarlo
-        // ================================================================================================
         const payload = { 
             userProfile, 
             workoutHistory: combinedHistory,
@@ -172,9 +170,7 @@ export const StatsPage: React.FC = () => {
         
         const sanitizedPayload = sanitizeDataForJSON(payload);
         
-        // Ora inviamo i dati "puliti" alla Cloud Function
         const result = await generatePerformanceReport(sanitizedPayload);
-        // ================================================================================================
 
         setReportData(result.data as ReportData);
 
@@ -203,7 +199,6 @@ export const StatsPage: React.FC = () => {
   const legendLabel = selectedGroup === 'Cardio' ? 'Durata' : 'Volume';
 
   return (
-    // ... nessuna modifica alla parte JSX, è corretta ...
     <div className="container mx-auto p-4 space-y-6">
       <Card>
         <div className="flex items-center gap-2">
