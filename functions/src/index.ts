@@ -265,6 +265,13 @@ L'utente ha richiesto un'analisi dettagliata delle sue performance basata sulla 
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
 
+// ======================================================================================
+    // NUOVO LOG DI DEBUG: Stampiamo la risposta grezza dell'AI nei log di Firebase
+    console.log("--- RAW AI RESPONSE ---");
+    console.log(responseText);
+    console.log("--- END RAW AI RESPONSE ---");
+// ======================================================================================
+
     if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
     
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
