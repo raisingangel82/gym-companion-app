@@ -24,10 +24,39 @@ interface ChartDataPoint {
   value: number;
 }
 
+// ================================================================================================
+// NUOVA AGGIUNTA: Funzione di utilità per sanificare i dati prima dell'invio a Firebase
+// ================================================================================================
+/**
+ * Naviga ricorsivamente un oggetto o un array e sostituisce
+ * tutti i valori NaN con 0. Questo previene errori di serializzazione JSON.
+ * @param data L'oggetto o l'array da "pulire".
+ * @returns L'oggetto o l'array sanificato, pronto per la serializzazione JSON.
+ */
+function sanitizeDataForJSON(data: any): any {
+  if (Array.isArray(data)) {
+    // Se è un array, applica la funzione a ogni elemento
+    return data.map(item => sanitizeDataForJSON(item));
+  } else if (data !== null && typeof data === 'object') {
+    // Se è un oggetto, applica la funzione a ogni valore delle sue proprietà
+    const sanitizedObject: { [key: string]: any } = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        sanitizedObject[key] = sanitizeDataForJSON(data[key]);
+      }
+    }
+    return sanitizedObject;
+  } else if (typeof data === 'number' && isNaN(data)) {
+    // Questa è la logica chiave: se è un numero ed è NaN, restituisci 0
+    return 0;
+  }
+  // Altrimenti, restituisci il valore così com'è
+  return data;
+}
+
+
 const getMuscleGroupForExercise = (exerciseName: string): string => {
   const normalizedName = exerciseName.toLowerCase().trim();
-  // CORREZIONE: Riorganizzato l'ordine per dare priorità a parole chiave più specifiche (es. curl, dips)
-  // rispetto a quelle più generiche (es. panca). Bicipiti e Tricipiti ora vengono controllati prima di Petto.
   const map: Record<string, string> = {
     'curl': 'Bicipiti',
     'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti',
@@ -61,6 +90,7 @@ export const StatsPage: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const aggregatedStats = useMemo(() => {
+    // ... nessuna modifica qui, la logica di calcolo per i grafici è corretta ...
     const stats: Record<string, Record<string, number>> = {};
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
@@ -131,11 +161,20 @@ export const StatsPage: React.FC = () => {
         
         const userProfile = { goal: user.goal, injuries: user.injuries };
         
-        const result = await generatePerformanceReport({ 
+        // ================================================================================================
+        // MODIFICA: Creiamo il payload e lo sanifichiamo prima di inviarlo
+        // ================================================================================================
+        const payload = { 
             userProfile, 
             workoutHistory: combinedHistory,
             workoutName: "Riepilogo Generale"
-        });
+        };
+        
+        const sanitizedPayload = sanitizeDataForJSON(payload);
+        
+        // Ora inviamo i dati "puliti" alla Cloud Function
+        const result = await generatePerformanceReport(sanitizedPayload);
+        // ================================================================================================
 
         setReportData(result.data as ReportData);
 
@@ -164,6 +203,7 @@ export const StatsPage: React.FC = () => {
   const legendLabel = selectedGroup === 'Cardio' ? 'Durata' : 'Volume';
 
   return (
+    // ... nessuna modifica alla parte JSX, è corretta ...
     <div className="container mx-auto p-4 space-y-6">
       <Card>
         <div className="flex items-center gap-2">
