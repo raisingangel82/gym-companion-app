@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
-import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle } from 'lucide-react';
 import { storage, db } from '../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy } from 'firebase/firestore';
@@ -41,7 +41,7 @@ const readMediaTags = (file: File): Promise<CustomTagType> => {
 
 export const MusicPage: React.FC = () => {
   const { user } = useAuth();
-  const { currentTrack, isPlaying, loadPlaylistAndPlay, togglePlayPause, playNext, playPrevious } = useMusic();
+  const { currentTrack, isPlaying, isShuffleActive, loadPlaylistAndPlay, togglePlayPause, playNext, playPrevious, toggleShuffle } = useMusic();
   const [songs, setSongs] = useState<Song[]>([]);
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
@@ -93,7 +93,7 @@ export const MusicPage: React.FC = () => {
       const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         uploadTask.on('state_changed',
           (snapshot) => {
             const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -103,7 +103,9 @@ export const MusicPage: React.FC = () => {
               )
             );
            },
-          (error) => reject(error),
+          (error) => {
+            reject({ fileName: file.name, error }); // In caso di errore, restituiamo un oggetto con i dettagli
+          },
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             try {
@@ -116,26 +118,36 @@ export const MusicPage: React.FC = () => {
                 downloadURL: downloadURL,
                 uploadedAt: serverTimestamp()
               });
+              resolve(file.name); // Successo: risolviamo con il nome del file
             } catch (error) {
-              console.error("Error saving to Firestore:", error);
+              reject({ fileName: file.name, error });
             }
-            resolve();
           }
         );
       });
     });
 
-    try {
-      await Promise.all(uploadPromises);
-      alert("Upload complete!");
-    } catch (error) {
-      alert("An error occurred during upload.");
-    } finally {
-      setIsUploading(false);
-      setFilesToUpload(null);
-      setUploadProgress([]);
-      if(fileInputRef.current) fileInputRef.current.value = "";
+    // Usiamo Promise.allSettled per attendere tutti i caricamenti, anche quelli falliti
+    const results = await Promise.allSettled(uploadPromises);
+
+    // Analizziamo i risultati per dare un feedback preciso all'utente
+    const successfulUploads = results.filter(r => r.status === 'fulfilled').length;
+    const failedUploads = results.filter(r => r.status === 'rejected');
+    
+    let alertMessage = `${successfulUploads} su ${filesArray.length} brani caricati con successo.`;
+
+    if (failedUploads.length > 0) {
+      alertMessage += `\n${failedUploads.length} caricamenti sono falliti. Controlla la console per i dettagli.`;
+      console.error("Dettagli dei caricamenti falliti:", failedUploads.map(r => (r as PromiseRejectedResult).reason));
     }
+    
+    alert(alertMessage);
+
+    // Pulizia finale
+    setIsUploading(false);
+    setFilesToUpload(null);
+    setUploadProgress([]);
+    if(fileInputRef.current) fileInputRef.current.value = "";
   };
   
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +175,14 @@ export const MusicPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center justify-center gap-4">
+            <Button 
+              onClick={toggleShuffle} 
+              variant="ghost" 
+              size="icon" 
+              className={`w-12 h-12 ${isShuffleActive ? 'text-blue-500' : 'text-gray-500'}`}
+            >
+              <Shuffle size={20} />
+            </Button>
             <Button onClick={playPrevious} variant="ghost" size="icon" className="w-12 h-12">
               <SkipBack size={24} />
             </Button>
@@ -172,30 +192,37 @@ export const MusicPage: React.FC = () => {
             <Button onClick={playNext} variant="ghost" size="icon" className="w-12 h-12">
               <SkipForward size={24} />
             </Button>
+            <div className="w-12 h-12" />
           </div>
         </Card>
       )}
 
       <div className="w-full max-w-lg mx-auto space-y-2">
         <h2 className="text-xl font-bold px-2 pt-4">La Mia Libreria</h2>
-        {songs.map((song, index) => (
-          <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => handlePlaySong(index)}>
-            {song.coverURL ? (
-              <img src={song.coverURL} alt="" className="w-12 h-12 rounded-md object-cover" />
-            ) : (
-              <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
-                <Music2 size={24} className="text-gray-400" />
+        {songs.length > 0 ? (
+          songs.map((song, index) => (
+            <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => handlePlaySong(index)}>
+              {song.coverURL ? (
+                <img src={song.coverURL} alt="" className="w-12 h-12 rounded-md object-cover" />
+              ) : (
+                <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
+                  <Music2 size={24} className="text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1 overflow-hidden">
+                <p className="font-semibold truncate">{song.title}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
               </div>
-            )}
-            <div className="flex-1 overflow-hidden">
-              <p className="font-semibold truncate">{song.title}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
-            </div>
-            <Button size="icon" variant="ghost">
-              <Play />
-            </Button>
+              <Button size="icon" variant="ghost">
+                <Play />
+              </Button>
+            </Card>
+          ))
+        ) : (
+          <Card className="p-4 text-center text-gray-500 dark:text-gray-400">
+            <p>Nessun brano trovato. Caricane uno per iniziare!</p>
           </Card>
-        ))}
+        )}
       </div>
 
       <Card className="w-full max-w-lg mx-auto">
@@ -208,9 +235,9 @@ export const MusicPage: React.FC = () => {
         </button>
         {isUploaderOpen && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-            <input type="file" accept="audio/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+            <input type="file" accept="audio/*" multiple webkitdirectory ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
             <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploading}>
-              Scegli File Audio...
+              Scegli File o Cartelle...
             </Button>
             {filesToUpload && filesToUpload.length > 0 && (
               <div className='text-center text-sm text-gray-500 dark:text-gray-400'>

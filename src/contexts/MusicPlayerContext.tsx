@@ -11,10 +11,12 @@ export interface Song {
 interface MusicContextType {
   currentTrack: Song | null;
   isPlaying: boolean;
+  isShuffleActive: boolean;
   loadPlaylistAndPlay: (playlist: Song[], startIndex: number) => void;
   togglePlayPause: () => void;
   playNext: () => void;
   playPrevious: () => void;
+  toggleShuffle: () => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isShuffleActive, setIsShuffleActive] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -33,19 +36,39 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setCurrentTrackIndex(startIndex);
   }, []);
 
+  const toggleShuffle = useCallback(() => {
+    setIsShuffleActive(prev => !prev);
+  }, []);
+
   const playNext = useCallback(() => {
-    if (playlist.length > 0 && currentTrackIndex !== null) {
-      const nextIndex = (currentTrackIndex + 1) % playlist.length;
+    if (playlist.length <= 1) return;
+
+    if (isShuffleActive) {
+      let nextIndex;
+      do {
+        nextIndex = Math.floor(Math.random() * playlist.length);
+      } while (playlist.length > 1 && nextIndex === currentTrackIndex);
+      setCurrentTrackIndex(nextIndex);
+    } else {
+      const nextIndex = ((currentTrackIndex ?? -1) + 1) % playlist.length;
       setCurrentTrackIndex(nextIndex);
     }
-  }, [playlist, currentTrackIndex]);
+  }, [playlist, currentTrackIndex, isShuffleActive]);
   
   const playPrevious = useCallback(() => {
-    if (playlist.length > 0 && currentTrackIndex !== null) {
-      const prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+    if (playlist.length <= 1) return;
+
+    if (isShuffleActive) {
+      let prevIndex;
+      do {
+        prevIndex = Math.floor(Math.random() * playlist.length);
+      } while (playlist.length > 1 && prevIndex === currentTrackIndex);
+      setCurrentTrackIndex(prevIndex);
+    } else {
+      const prevIndex = ((currentTrackIndex ?? 0) - 1 + playlist.length) % playlist.length;
       setCurrentTrackIndex(prevIndex);
     }
-  }, [playlist, currentTrackIndex]);
+  }, [playlist, currentTrackIndex, isShuffleActive]);
 
   const togglePlayPause = useCallback(() => {
     if (currentTrack) {
@@ -72,10 +95,12 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     currentTrack,
     isPlaying,
+    isShuffleActive,
     loadPlaylistAndPlay,
     togglePlayPause,
     playNext,
     playPrevious,
+    toggleShuffle,
   };
 
   return (
