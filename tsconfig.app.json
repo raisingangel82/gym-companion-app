@@ -1,20 +1,25 @@
 {
   "compilerOptions": {
-    "composite": true, // <-- OBBLIGATORIO: Abilita i project references
+    "composite": true,
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020", 
+      "DOM", 
+      "DOM.Iterable", 
+      "WebWorker"
+    ], // <-- Aggiunto "WebWorker" per risolvere l'errore 'ExtendableEvent'
     "module": "ESNext",
     "skipLibCheck": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "allowImportingTsExtensions": false, // <-- Modificato da 'true' a 'false' per risolvere l'errore TS5096
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false, // <-- OBBLIGATORIO: Deve essere 'false' per permettere la build
+    "noEmit": false,
     "jsx": "react-jsx",
-    "declaration": true, // <-- OBBLIGATORIO: Abilita la generazione dei file .d.ts
+    "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
 
@@ -24,5 +29,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"] // Questo file si occupa di tutto il codice in 'src'
+  "include": ["src"]
 }
