@@ -1,15 +1,8 @@
 {
-  "compilerOptions": {
-    // This section is likely in your tsconfig.app.json, but it's safe to have it here too.
-    // If you have specific options, make sure they are preserved.
-  },
   "files": [],
+  "include": [], // Lasciare vuoto, la gestione è nei file referenziati
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
-  ],
-  "include": [
-    "src",
-    "src/react-extensions.d.ts"
   ]
 }
