@@ -11,12 +11,12 @@ export interface Song {
 interface MusicContextType {
   currentTrack: Song | null;
   isPlaying: boolean;
-  isShuffleActive: boolean;
+  isShuffleActive: boolean; // NUOVO STATO
   loadPlaylistAndPlay: (playlist: Song[], startIndex: number) => void;
   togglePlayPause: () => void;
   playNext: () => void;
   playPrevious: () => void;
-  toggleShuffle: () => void;
+  toggleShuffle: () => void; // NUOVA FUNZIONE
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -25,7 +25,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isShuffleActive, setIsShuffleActive] = useState(false);
+  const [isShuffleActive, setIsShuffleActive] = useState(false); // DEFINIZIONE DELLO STATO
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -36,10 +36,12 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setCurrentTrackIndex(startIndex);
   }, []);
 
+  // NUOVA FUNZIONE PER ATTIVARE/DISATTIVARE LO SHUFFLE
   const toggleShuffle = useCallback(() => {
     setIsShuffleActive(prev => !prev);
   }, []);
 
+  // LOGICA AGGIORNATA PER playNext
   const playNext = useCallback(() => {
     if (playlist.length <= 1) return;
 
@@ -47,7 +49,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       let nextIndex;
       do {
         nextIndex = Math.floor(Math.random() * playlist.length);
-      } while (playlist.length > 1 && nextIndex === currentTrackIndex);
+      } while (playlist.length > 1 && nextIndex === currentTrackIndex); // Evita di ripetere lo stesso brano
       setCurrentTrackIndex(nextIndex);
     } else {
       const nextIndex = ((currentTrackIndex ?? -1) + 1) % playlist.length;
@@ -55,14 +57,16 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [playlist, currentTrackIndex, isShuffleActive]);
   
+  // LOGICA AGGIORNATA PER playPrevious
   const playPrevious = useCallback(() => {
     if (playlist.length <= 1) return;
 
     if (isShuffleActive) {
+      // In modalità shuffle, "previous" è semplicemente un altro brano casuale
       let prevIndex;
       do {
         prevIndex = Math.floor(Math.random() * playlist.length);
-      } while (playlist.length > 1 && prevIndex === currentTrackIndex);
+      } while (playlist.length > 1 && prevIndex === currentTrackIndex); // Evita di ripetere lo stesso brano
       setCurrentTrackIndex(prevIndex);
     } else {
       const prevIndex = ((currentTrackIndex ?? 0) - 1 + playlist.length) % playlist.length;
@@ -80,11 +84,13 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Se cambia la traccia, aggiorna la sorgente e avvia la riproduzione
     if (currentTrack && audio.src !== currentTrack.downloadURL) {
       audio.src = currentTrack.downloadURL;
-      setIsPlaying(true);
+      setIsPlaying(true); // Imposta isPlaying a true per far partire la nuova traccia
     }
 
+    // Gestisce play/pausa in base allo stato
     if (isPlaying) {
       audio.play().catch(e => console.error("Errore di riproduzione:", e));
     } else {
@@ -95,12 +101,12 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     currentTrack,
     isPlaying,
-    isShuffleActive,
+    isShuffleActive, // Esponiamo il nuovo stato
     loadPlaylistAndPlay,
     togglePlayPause,
     playNext,
     playPrevious,
-    toggleShuffle,
+    toggleShuffle, // Esponiamo la nuova funzione
   };
 
   return (
@@ -108,7 +114,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <audio
         ref={audioRef}
-        onEnded={playNext}
+        onEnded={playNext} // Quando un brano finisce, chiama playNext (che ora gestisce lo shuffle)
         onError={(e) => console.error("Errore elemento audio:", e)}
       />
     </MusicContext.Provider>

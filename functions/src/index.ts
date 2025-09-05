@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase-admin/app";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { VertexAI } from "@google-cloud/vertexai";
+import fetch from "node-fetch"; // <-- IMPORT AGGIUNTO per le chiamate API
 
 // Inizializza l'app di Firebase Admin.
 // Questo è necessario per far funzionare le Cloud Functions nell'ambiente del server.
@@ -291,5 +292,49 @@ L'utente ha richiesto un'analisi dettagliata delle sue performance basata sulla 
     console.error("Errore durante la generazione del report:", error);
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", "Impossibile generare il report AI.");
+  }
+});
+
+// ======================================================================================
+// NUOVA FUNZIONE PER I METADATI MUSICALI
+// ======================================================================================
+
+/**
+ * Funzione Callable per cercare metadati di brani musicali.
+ * Agisce come un proxy sicuro verso l'API di Deezer.
+ */
+export const getMusicMetadata = onCall(functionOptions, async (request) => {
+  // 1. Controllo di autenticazione
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "È necessario essere autenticati per cercare metadati.");
+  }
+
+  // 2. Validazione dei dati in input
+  const { query } = request.data;
+  if (!query || typeof query !== 'string') {
+    throw new HttpsError("invalid-argument", "È necessaria una 'query' di tipo stringa.");
+  }
+
+  // 3. Costruzione della richiesta e chiamata all'API esterna
+  const searchUrl = `https://api.deezer.com/search?q=${encodeURIComponent(query)}`;
+
+  try {
+    // La chiamata viene fatta dal server di Google, evitando problemi di CORS.
+    const response = await fetch(searchUrl);
+    if (!response.ok) {
+      throw new HttpsError("unavailable", "L'API di Deezer non è al momento raggiungibile.");
+    }
+    
+    // Specifichiamo un tipo per la risposta attesa da Deezer per maggiore sicurezza.
+    const deezerResponse = await response.json() as { data?: unknown[] };
+
+    // 4. Restituzione dei dati al client
+    // Restituiamo l'array 'data' se esiste, altrimenti un array vuoto.
+    return deezerResponse.data || [];
+
+  } catch (error) {
+    console.error("Errore durante la ricerca di metadati su Deezer:", error);
+    if (error instanceof HttpsError) throw error; // Se è già un nostro errore, lo rilanciamo.
+    throw new HttpsError("internal", "Impossibile completare la ricerca dei metadati.");
   }
 });
