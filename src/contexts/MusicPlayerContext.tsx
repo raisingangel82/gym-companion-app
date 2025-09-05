@@ -6,6 +6,7 @@ export interface Song {
   artist: string;
   downloadURL: string;
   coverURL?: string | null;
+  fileName: string; // <-- AGGIUNGI QUESTA RIGA
 }
 
 interface MusicContextType {

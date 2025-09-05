@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
-    "composite": true, // <-- OBBLIGATORIO: Abilita i project references
-    "target": "ES2020",
+    "composite": true,
+    "skipLibCheck": true, // <-- CORREZIONE CRUCIALE: Aggiunto per ignorare errori nelle dipendenze
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noEmit": true
   },
   "include": ["vite.config.ts"]
 }
