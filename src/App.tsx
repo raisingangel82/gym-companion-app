@@ -44,7 +44,8 @@ function MainAppLayout() {
       ];
       const profileToSave = Object.fromEntries(
         Object.entries(formData).filter(([key, value]) => 
-            profileKeys.includes(key as key of UserProfile) && value !== undefined
+            // CORREZIONE: 'key of' è diventato 'keyof'
+            profileKeys.includes(key as keyof UserProfile) && value !== undefined
         )
       );
       await updateUserProfile(user.uid, profileToSave);
@@ -56,7 +57,6 @@ function MainAppLayout() {
   }, [user]);
   
   const actionConfig: ActionConfig = useMemo(() => {
-    // Funzione sicura che gestisce il caso in cui registeredAction sia null
     const safeRegisteredAction = () => {
       if (registeredAction) {
         registeredAction();
