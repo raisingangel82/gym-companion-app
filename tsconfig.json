@@ -5,3 +5,7 @@
     { "path": "./tsconfig.node.json" }
   ]
 }
+  },
+  "include": ["src", "src/react-extensions.d.ts"], // <-- Add the new file here
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
