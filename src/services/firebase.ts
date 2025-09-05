@@ -3,6 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 // NUOVI IMPORT
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { getStorage } from "firebase/storage"; // <-- ASSICURATI DI AVERE QUESTO
 
 const firebaseConfig = {
   apiKey: "AIzaSyBUZe_mGbfLL4HzaacbshE6kj38oS7xWPg",
@@ -27,3 +28,4 @@ initializeAppCheck(app, {
 
 export const auth = getAuth(app); 
 export const db = getFirestore(app);
+export const storage = getStorage(app); // <-- E DI ESPORTARLO

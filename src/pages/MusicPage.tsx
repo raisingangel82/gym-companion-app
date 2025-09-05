@@ -1,158 +1,229 @@
-import { useState } from 'react';
-import { useMusic } from '../contexts/MusicContext';
-import { useTheme } from '../contexts/ThemeContext';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Music2, Youtube as YoutubeIcon, Upload, PlusCircle, ChevronDown, Trash2 } from 'lucide-react';
-import { Input } from '../components/ui/Input';
+import { useMusic, Song } from '../contexts/MusicPlayerContext';
+import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+
+// Import da Firebase (assicurati che i percorsi siano corretti)
+import { storage, db } from '../services/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy } from 'firebase/firestore';
+
+// Import dei componenti UI
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { FavoritePlaylistModal } from '../components/FavoritePlaylistModal';
 
-const getYouTubeVideoId = (url: string): string | null => {
-    const patterns = [ /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/, ];
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) { return match[1]; }
-    }
-    if (url.length === 11 && !url.includes(' ')) { return url; }
-    return null;
-};
-
-const getYouTubePlaylistId = (url: string): string | null => {
-  const regExp = /[&?]list=([^&]+)/i;
-  const match = url.match(regExp);
-  return match ? match[1] : null;
-};
+interface UploadProgress {
+  fileName: string;
+  progress: number;
+}
 
 export const MusicPage: React.FC = () => {
+  const { user } = useAuth();
+  // Prendiamo tutto il necessario dal MusicContext per controllare il player
   const { 
-    videoId,
-    playlistId,
-    playTrack, 
-    playPlaylist, 
+    currentTrack, 
+    isPlaying, 
+    loadPlaylistAndPlay, 
+    togglePlayPause,
+    playNext,
+    playPrevious
   } = useMusic();
-  const { activeTheme } = useTheme();
-  const { user, addFavoritePlaylist, removeFavoritePlaylist } = useAuth();
-  const [url, setUrl] = useState('');
-  const [isFavoriteModalOpen, setIsFavoriteModalOpen] = useState(false);
+
+  // Stato per la lista di brani caricati da Firestore
+  const [songs, setSongs] = useState<Song[]>([]);
+  
+  // Stati per la gestione dell'uploader
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUrlSubmit = () => {
-    if (!url) return;
-    const newPlaylistId = getYouTubePlaylistId(url);
-    if (newPlaylistId) {
-      playPlaylist(newPlaylistId);
-      setUrl('');
+  // Questo useEffect si attiva al caricamento della pagina e recupera i brani
+  useEffect(() => {
+    if (!user) return; // Non fare nulla se l'utente non è loggato
+
+    // Puntiamo alla sottocollezione 'songs' dell'utente corrente
+    const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
+    const q = query(songsCollectionRef, orderBy('uploadedAt', 'desc'));
+
+    // 'onSnapshot' crea un listener in tempo reale: la lista si aggiornerà
+    // automaticamente se aggiungi o rimuovi brani.
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const songsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Song));
+      setSongs(songsData);
+    });
+
+    // Questa funzione di pulizia rimuove il listener quando esci dalla pagina
+    return () => unsubscribe();
+  }, [user]);
+
+  // Funzione per avviare la riproduzione quando si clicca un brano dalla lista
+  const handlePlaySong = (index: number) => {
+    loadPlaylistAndPlay(songs, index);
+  };
+  
+  // Funzione di upload (invariata)
+  const handleUpload = async () => {
+    if (!filesToUpload || filesToUpload.length === 0 || !user) {
+      alert("Seleziona almeno un file da caricare.");
       return;
     }
-    const newVideoId = getYouTubeVideoId(url);
-    if (newVideoId) {
-      playTrack(newVideoId);
-      setUrl('');
-      return;
-    }
-    alert("URL non valido. Assicurati di inserire un link corretto di un video o di una playlist di YouTube.");
-  };
 
-  const handlePlayFavorite = (playlistUrl: string) => {
-    const favoritePlaylistId = getYouTubePlaylistId(playlistUrl);
-    if (favoritePlaylistId) {
-      playPlaylist(favoritePlaylistId);
-    }
-  };
+    setIsUploading(true);
+    const filesArray = Array.from(filesToUpload);
+    setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0 })));
 
-  const handleSaveFavorite = async (name: string, url: string) => {
+    const uploadPromises = filesArray.map(async (file) => {
+      const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      return new Promise<void>((resolve, reject) => {
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(prev => 
+              prev.map(item => 
+                item.fileName === file.name ? { ...item, progress: progress } : item
+              )
+            );
+          },
+          (error) => {
+            console.error(`Upload fallito per ${file.name}:`, error);
+            reject(error);
+          },
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            try {
+              const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
+              await addDoc(songsCollectionRef, {
+                fileName: file.name,
+                title: file.name.replace(/\.[^/.]+$/, ""),
+                artist: "Artista Sconosciuto",
+                downloadURL: downloadURL,
+                uploadedAt: serverTimestamp()
+              });
+            } catch (error) {
+              console.error("Errore nel salvataggio su Firestore:", error);
+            }
+            resolve();
+          }
+        );
+      });
+    });
+
     try {
-      await addFavoritePlaylist({ name, url });
+      await Promise.all(uploadPromises);
+      alert("Tutti i brani sono stati caricati e registrati con successo!");
     } catch (error) {
-      console.error("Errore nel salvataggio della playlist:", error);
-      alert("Si è verificato un errore nel salvataggio.");
+      alert("Si è verificato un errore durante il caricamento di alcuni brani.");
+    } finally {
+      setIsUploading(false);
+      setFilesToUpload(null);
+      setUploadProgress([]);
+      if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const handleRemoveFavorite = async (playlist: {name: string, url: string}) => {
-    if (window.confirm(`Sei sicuro di voler eliminare la playlist "${playlist.name}"?`)) {
-        try {
-            await removeFavoritePlaylist(playlist);
-        } catch (error) {
-            console.error("Errore durante l'eliminazione:", error);
-            alert("Si è verificato un errore.");
-        }
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setFilesToUpload(event.target.files);
     }
-  }
-
-  const isMusicActive = !!(videoId || playlistId);
+  };
 
   return (
-    <>
-      <div className="container mx-auto p-4 space-y-6 pb-32">
-        {/* Questa card ora è solo informativa, non contiene più il player */}
-        {!isMusicActive && (
-          <Card className="w-full max-w-lg mx-auto flex flex-col items-center justify-center text-center p-6 min-h-[25vh]">
-            <Music2 size={48} className="text-gray-400 dark:text-gray-600 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">Player Musicale</h2>
-            <p className="text-gray-500 dark:text-gray-400">La musica in riproduzione appare nella barra in alto.</p>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">Usa le card qui sotto per caricare un link o scegliere una playlist.</p>
+    <div className="container mx-auto p-4 space-y-6 pb-32">
+      
+      {/* ========================================================== */}
+      {/* NUOVO PLAYER CARD - VISIBILE SOLO DURANTE LA RIPRODUZIONE   */}
+      {/* ========================================================== */}
+      {currentTrack && (
+        <Card className="w-full max-w-lg mx-auto p-4 space-y-4 sticky top-4 z-10">
+          <div className="flex items-center gap-4">
+            {/* Placeholder per la copertina dell'album (Fase 2) */}
+            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
+              <Music2 size={48} className="text-gray-400 dark:text-gray-500" />
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="font-bold text-lg truncate">{currentTrack.title}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{currentTrack.artist}</p>
+            </div>
+          </div>
+          {/* Controlli di riproduzione */}
+          <div className="flex items-center justify-center gap-4">
+            <Button onClick={playPrevious} variant="ghost" size="icon" className="w-12 h-12">
+              <SkipBack size={24} />
+            </Button>
+            <Button onClick={togglePlayPause} variant="default" size="icon" className="w-16 h-16 rounded-full">
+              {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
+            </Button>
+            <Button onClick={playNext} variant="ghost" size="icon" className="w-12 h-12">
+              <SkipForward size={24} />
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* LISTA DEI BRANI CARICATI */}
+      <div className="w-full max-w-lg mx-auto space-y-2">
+        <h2 className="text-xl font-bold px-2 pt-4">La Mia Libreria</h2>
+        {songs.length > 0 ? (
+          songs.map((song, index) => (
+            <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => handlePlaySong(index)}>
+              <div className="flex-1 overflow-hidden">
+                <p className="font-semibold truncate">{song.title}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
+              </div>
+              <Button size="icon" variant="ghost">
+                <Play />
+              </Button>
+            </Card>
+          ))
+        ) : (
+          <Card className="p-4 text-center text-gray-500 dark:text-gray-400">
+            <p>Nessun brano trovato. Caricane uno per iniziare!</p>
           </Card>
         )}
-        
-        <Card className="w-full max-w-lg mx-auto">
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Playlist Preferite</h2>
-                <Button onClick={() => setIsFavoriteModalOpen(true)} size="icon" variant="ghost" className="text-gray-500 dark:text-gray-300">
-                    <PlusCircle />
-                </Button>
-            </div>
-            <div className="mt-2 space-y-2">
-                {user?.favoritePlaylists && user.favoritePlaylists.length > 0 ? (
-                    user.favoritePlaylists.map((playlist) => (
-                        <div key={playlist.name} className="flex items-center gap-2">
-                            <Button onClick={() => handlePlayFavorite(playlist.url)} variant="secondary" className="flex-grow justify-start text-left">
-                                {playlist.name}
-                            </Button>
-                            <Button onClick={() => handleRemoveFavorite(playlist)} variant="ghost" size="icon" className="text-red-500 hover:bg-red-500/10 flex-shrink-0">
-                                <Trash2 size={16}/>
-                            </Button>
-                        </div>
-                    ))
-                ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Non hai ancora salvato nessuna playlist. Clicca su '+' per aggiungerne una.</p>
-                )}
-            </div>
-        </Card>
-
-        <Card className="w-full max-w-lg mx-auto">
-          <button onClick={() => setIsUploaderOpen(!isUploaderOpen)} className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Upload />
-              <h2 className="text-xl font-bold">Carica Musica</h2>
-            </div>
-            <ChevronDown size={20} className={`transition-transform duration-300 ${isUploaderOpen ? 'rotate-180' : ''}`} />
-          </button>
-
-          {isUploaderOpen && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-              <div className="flex gap-2">
-                <Input value={url} onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()} onChange={(e) => setUrl(e.target.value)} placeholder="Link video o playlist" />
-                <Button onClick={handleUrlSubmit} className={`text-white ${activeTheme.bgClass} hover:opacity-90`}>
-                  Carica
-                </Button>
-              </div>
-               <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="block">
-                  <Button variant="outline" className="w-full dark:border-red-500/50 dark:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400">
-                      <YoutubeIcon size={20} className="mr-2" /> Apri YouTube
-                  </Button>
-              </a>
-            </div>
-          )}
-        </Card>
       </div>
 
-      <FavoritePlaylistModal
-        isOpen={isFavoriteModalOpen}
-        onClose={() => setIsFavoriteModalOpen(false)}
-        onSave={handleSaveFavorite}
-      />
-    </>
+      {/* Card per l'upload */}
+      <Card className="w-full max-w-lg mx-auto">
+        <button onClick={() => setIsUploaderOpen(!isUploaderOpen)} className="w-full flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UploadCloud />
+            <h2 className="text-xl font-bold">Carica Nuovi Brani</h2>
+          </div>
+          <ChevronDown size={20} className={`transition-transform duration-300 ${isUploaderOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {isUploaderOpen && (
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+            <input type="file" accept="audio/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+            <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploading}>
+              Scegli File Audio...
+            </Button>
+            {filesToUpload && filesToUpload.length > 0 && (
+              <div className='text-center text-sm text-gray-500 dark:text-gray-400'>
+                {filesToUpload.length} brano(i) selezionato(i).
+              </div>
+            )}
+            <Button onClick={handleUpload} className="w-full" disabled={isUploading || !filesToUpload}>
+              {isUploading ? 'Caricamento in corso...' : `Carica ${filesToUpload?.length || 0} brani`}
+            </Button>
+            {isUploading && uploadProgress.length > 0 && (
+              <div className="space-y-2 pt-2">
+                {uploadProgress.map(item => (
+                  <div key={item.fileName}>
+                    <p className="text-sm truncate">{item.fileName}</p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${item.progress.toFixed(2)}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 };

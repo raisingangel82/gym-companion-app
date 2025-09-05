@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { MusicProvider } from './contexts/MusicContext';
+import { MusicProvider } from './contexts/MusicPlayerContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import './index.css';
 

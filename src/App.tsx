@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 
 // Hooks, Tipi e Servizi
-import { useMusic, MusicProvider } from './contexts/MusicContext';
+import { useMusic, MusicProvider } from './contexts/MusicPlayerContext';
 import { usePageAction, PageActionProvider } from './contexts/PageActionContext';
 import { useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -14,7 +14,8 @@ import type { ActionConfig, UserProfile } from './types';
 // Componenti e Pagine
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
-import { MusicBar } from './components/MusicBar'; // Il nostro componente ora persistente
+// La MusicBar non viene più importata qui perché non fa parte del layout principale
+// import { MusicBar } from './components/MusicBar'; 
 import { OnboardingModal } from './components/OnboardingModal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UpdatePrompt } from './components/UpdatePrompt';
@@ -30,9 +31,7 @@ import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
 
 function MainAppLayout() {
   const { 
-    videoId, 
-    playlistId, 
-    playerRef, 
+    // Rimuoviamo videoId e playlistId perché il context ora gestisce un 'currentTrack' generico
     isPlaying,
   } = useMusic();
   const { registeredAction } = usePageAction();
@@ -42,15 +41,8 @@ function MainAppLayout() {
   const { isTimerActive, isAlarming } = useRestTimer();
   const currentPath = location.pathname;
 
-  const handleTogglePlay = useCallback(() => {
-    if (!playerRef.current) return;
-    const playerState = playerRef.current.getPlayerState();
-    if (playerState === 1) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
-    }
-  }, [playerRef]);
+  // Questa funzione non è più necessaria qui, verrà gestita dalla MusicPage
+  // const handleTogglePlay = useCallback(() => { ... });
   
   const handleCompleteOnboarding = useCallback(async (formData: UserProfile) => {
     if (!user) return;
@@ -71,19 +63,22 @@ function MainAppLayout() {
     }
   }, [user]);
   
+  // Semplifichiamo l'actionConfig: non gestisce più il play/pausa globale
   const actionConfig: ActionConfig = useMemo(() => {
     if (currentPath === '/') return { icon: Dumbbell, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Registra Set', disabled: !registeredAction };
     if (currentPath === '/manage') return { icon: Plus, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Crea Scheda', disabled: !registeredAction };
     if (currentPath === '/stats') return { icon: Sparkles, onClick: () => { if (registeredAction) registeredAction(); }, label: 'Report AI', disabled: !registeredAction };
-    return { icon: isPlaying ? Pause : Play, onClick: handleTogglePlay, label: 'Play/Pausa', disabled: !videoId && !playlistId };
-  }, [currentPath, isPlaying, videoId, playlistId, registeredAction, handleTogglePlay]);
+    // Rimuoviamo il caso di default per la musica. La BottomBar non mostrerà un'azione speciale per la MusicPage
+    return { icon: Play, onClick: () => {}, label: '', disabled: true, isHidden: true };
+  }, [currentPath, registeredAction]);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
       
-      {/* La MusicBar viene renderizzata qui. Sarà lei stessa a decidere se mostrarsi o meno. */}
-      <MusicBar />
+      {/* ========================================================== */}
+      {/* LA MUSICBAR È STATA RIMOSSA DA QUI                      */}
+      {/* ========================================================== */}
 
       <main className="flex-1 overflow-y-auto pb-24">
         <Outlet />
