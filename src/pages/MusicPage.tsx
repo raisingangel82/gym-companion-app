@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
@@ -9,20 +9,35 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import jsmediatags from 'jsmediatags';
 
+// Definizione del tipo locale per i tag multimediali
+interface MediaTagPicture {
+  data: number[];
+  format: string;
+}
+interface MediaTags {
+  title?: string;
+  artist?: string;
+  picture?: MediaTagPicture;
+}
+interface CustomTagType {
+  tags: MediaTags;
+}
+
+// Interfaccia per lo stato di avanzamento dell'upload
 interface UploadProgress {
   fileName: string;
   progress: number;
 }
 
-const readMediaTags = (file: File): Promise<jsmediatags.TagType> => {
+// Funzione helper che utilizza il nostro tipo locale
+const readMediaTags = (file: File): Promise<CustomTagType> => {
   return new Promise((resolve, reject) => {
     jsmediatags.read(file, {
-      onSuccess: (tag) => resolve(tag),
+      onSuccess: (tag) => resolve(tag as CustomTagType),
       onError: (error) => reject(error),
     });
   });
 };
-
 
 export const MusicPage: React.FC = () => {
   const { user } = useAuth();
@@ -46,8 +61,6 @@ export const MusicPage: React.FC = () => {
   }, [user]);
 
   const handlePlaySong = (index: number) => {
-    // LOG 3: Verifichiamo che il click funzioni
-    console.log(`[MusicPage] Cliccato brano all'indice ${index}. Dati:`, songs[index]);
     loadPlaylistAndPlay(songs, index);
   };
   

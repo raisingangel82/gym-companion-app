@@ -1,5 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
+
+// Hooks, Tipi e Servizi
 import { MusicProvider, useMusic } from './contexts/MusicPlayerContext';
 import { PageActionProvider, usePageAction } from './contexts/PageActionContext';
 import { useAuth } from './contexts/AuthContext';
@@ -8,6 +10,8 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { RestTimerProvider, useRestTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
+
+// Componenti e Pagine
 import { Header } from './components/Header';
 import { BottomBar } from './components/BottomBar';
 import { OnboardingModal } from './components/OnboardingModal';
@@ -32,9 +36,6 @@ function MainAppLayout() {
   const { isTimerActive, isAlarming } = useRestTimer();
   const currentPath = location.pathname;
   
-  // LOG 4: IL PIÙ IMPORTANTE - Vediamo lo stato al momento del render
-  console.log(`[App.tsx] Render di MainAppLayout. Path: ${currentPath}. currentTrack è:`, currentTrack);
-
   const handleCompleteOnboarding = useCallback(async (formData: UserProfile) => {
     if (!user) return;
     try {
@@ -43,7 +44,7 @@ function MainAppLayout() {
       ];
       const profileToSave = Object.fromEntries(
         Object.entries(formData).filter(([key, value]) => 
-            profileKeys.includes(key as keyof UserProfile) && value !== undefined
+            profileKeys.includes(key as key of UserProfile) && value !== undefined
         )
       );
       await updateUserProfile(user.uid, profileToSave);
@@ -55,22 +56,27 @@ function MainAppLayout() {
   }, [user]);
   
   const actionConfig: ActionConfig = useMemo(() => {
-    if (currentPath === '/music') {
-      return { 
-        icon: isPlaying ? Pause : Play, 
-        onClick: togglePlayPause, 
-        label: isPlaying ? 'Pausa' : 'Play', 
-        disabled: !currentTrack
-      };
-    }
+    // Funzione sicura che gestisce il caso in cui registeredAction sia null
+    const safeRegisteredAction = () => {
+      if (registeredAction) {
+        registeredAction();
+      }
+    };
 
     switch (currentPath) {
       case '/':
-        return { icon: Dumbbell, onClick: registeredAction, label: 'Registra Set', disabled: !registeredAction };
+        return { icon: Dumbbell, onClick: safeRegisteredAction, label: 'Registra Set', disabled: !registeredAction };
       case '/manage':
-        return { icon: Plus, onClick: registeredAction, label: 'Crea Scheda', disabled: !registeredAction };
+        return { icon: Plus, onClick: safeRegisteredAction, label: 'Crea Scheda', disabled: !registeredAction };
       case '/stats':
-        return { icon: Sparkles, onClick: registeredAction, label: 'Report AI', disabled: !registeredAction };
+        return { icon: Sparkles, onClick: safeRegisteredAction, label: 'Report AI', disabled: !registeredAction };
+      case '/music':
+        return { 
+          icon: isPlaying ? Pause : Play, 
+          onClick: togglePlayPause, 
+          label: isPlaying ? 'Pausa' : 'Play', 
+          disabled: !currentTrack 
+        };
       default:
         return { icon: Play, onClick: () => {}, label: '', disabled: true, isHidden: true };
     }
@@ -79,15 +85,19 @@ function MainAppLayout() {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Header onLogout={logout} onOpenOnboarding={() => setIsOnboardingModalOpen(true)} />
+
       <main className="flex-1 overflow-y-auto pb-24">
         <Outlet />
       </main>
+      
       <BottomBar actionConfig={actionConfig} />
+      
       <OnboardingModal
         isOpen={isOnboardingModalOpen}
         onComplete={handleCompleteOnboarding}
         initialData={user}
       />
+      
       {(isTimerActive || isAlarming) && currentPath === '/' && <RestTimerModal />}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 
 export interface Song {
   id: string;
@@ -29,8 +29,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
   const loadPlaylistAndPlay = useCallback((newPlaylist: Song[], startIndex: number) => {
-    // LOG 1: Vediamo se questa funzione viene chiamata correttamente
-    console.log(`[MusicContext] Chiamata loadPlaylistAndPlay con indice ${startIndex}`, newPlaylist);
     setPlaylist(newPlaylist);
     setCurrentTrackIndex(startIndex);
   }, []);
@@ -58,9 +56,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // LOG 2: Vediamo se e quando la traccia cambia nel context
-    console.log('[MusicContext] useEffect attivato. La traccia corrente è:', currentTrack);
 
     if (currentTrack && audio.src !== currentTrack.downloadURL) {
       audio.src = currentTrack.downloadURL;
