@@ -235,8 +235,7 @@ export const MusicPage: React.FC = () => {
         </button>
         {isUploaderOpen && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-            <input type="file" accept="audio/*" multiple webkitdirectory ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-            <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploading}>
+<input type="file" accept="audio/*" multiple webkitdirectory="true" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />            <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploading}>
               Scegli File o Cartelle...
             </Button>
             {filesToUpload && filesToUpload.length > 0 && (
