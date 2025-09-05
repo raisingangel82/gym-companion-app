@@ -1,80 +1,82 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useMusic, Song } from '../contexts/MusicPlayerContext';
+import { useMusic, type Song } from '../contexts/MusicPlayerContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
-
-// Import da Firebase (assicurati che i percorsi siano corretti)
 import { storage, db } from '../services/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy } from 'firebase/firestore';
-
-// Import dei componenti UI
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import jsmediatags from 'jsmediatags';
 
 interface UploadProgress {
   fileName: string;
   progress: number;
 }
 
+const readMediaTags = (file: File): Promise<jsmediatags.TagType> => {
+  return new Promise((resolve, reject) => {
+    jsmediatags.read(file, {
+      onSuccess: (tag) => resolve(tag),
+      onError: (error) => reject(error),
+    });
+  });
+};
+
+
 export const MusicPage: React.FC = () => {
   const { user } = useAuth();
-  // Prendiamo tutto il necessario dal MusicContext per controllare il player
-  const { 
-    currentTrack, 
-    isPlaying, 
-    loadPlaylistAndPlay, 
-    togglePlayPause,
-    playNext,
-    playPrevious
-  } = useMusic();
-
-  // Stato per la lista di brani caricati da Firestore
+  const { currentTrack, isPlaying, loadPlaylistAndPlay, togglePlayPause, playNext, playPrevious } = useMusic();
   const [songs, setSongs] = useState<Song[]>([]);
-  
-  // Stati per la gestione dell'uploader
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Questo useEffect si attiva al caricamento della pagina e recupera i brani
   useEffect(() => {
-    if (!user) return; // Non fare nulla se l'utente non è loggato
-
-    // Puntiamo alla sottocollezione 'songs' dell'utente corrente
+    if (!user) return;
     const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
     const q = query(songsCollectionRef, orderBy('uploadedAt', 'desc'));
-
-    // 'onSnapshot' crea un listener in tempo reale: la lista si aggiornerà
-    // automaticamente se aggiungi o rimuovi brani.
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const songsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Song));
       setSongs(songsData);
     });
-
-    // Questa funzione di pulizia rimuove il listener quando esci dalla pagina
     return () => unsubscribe();
   }, [user]);
 
-  // Funzione per avviare la riproduzione quando si clicca un brano dalla lista
   const handlePlaySong = (index: number) => {
+    // LOG 3: Verifichiamo che il click funzioni
+    console.log(`[MusicPage] Cliccato brano all'indice ${index}. Dati:`, songs[index]);
     loadPlaylistAndPlay(songs, index);
   };
   
-  // Funzione di upload (invariata)
   const handleUpload = async () => {
-    if (!filesToUpload || filesToUpload.length === 0 || !user) {
-      alert("Seleziona almeno un file da caricare.");
-      return;
-    }
+    if (!filesToUpload || filesToUpload.length === 0 || !user) return;
 
     setIsUploading(true);
     const filesArray = Array.from(filesToUpload);
     setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0 })));
 
     const uploadPromises = filesArray.map(async (file) => {
+      let metadata = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "Artista Sconosciuto", coverURL: null as string | null };
+      try {
+        const tags = await readMediaTags(file);
+        if (tags.tags.title) metadata.title = tags.tags.title;
+        if (tags.tags.artist) metadata.artist = tags.tags.artist;
+
+        const { picture } = tags.tags;
+        if (picture) {
+          const { data, format } = picture;
+          const blob = new Blob([new Uint8Array(data)], { type: format });
+          const coverRef = ref(storage, `covers/${user.uid}/${metadata.title}-cover.jpg`);
+          await uploadBytes(coverRef, blob);
+          metadata.coverURL = await getDownloadURL(coverRef);
+        }
+      } catch (error) {
+        console.warn(`Could not read metadata for ${file.name}`, error);
+      }
+
       const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -87,24 +89,22 @@ export const MusicPage: React.FC = () => {
                 item.fileName === file.name ? { ...item, progress: progress } : item
               )
             );
-          },
-          (error) => {
-            console.error(`Upload fallito per ${file.name}:`, error);
-            reject(error);
-          },
+           },
+          (error) => reject(error),
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             try {
               const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
               await addDoc(songsCollectionRef, {
                 fileName: file.name,
-                title: file.name.replace(/\.[^/.]+$/, ""),
-                artist: "Artista Sconosciuto",
+                title: metadata.title,
+                artist: metadata.artist,
+                coverURL: metadata.coverURL,
                 downloadURL: downloadURL,
                 uploadedAt: serverTimestamp()
               });
             } catch (error) {
-              console.error("Errore nel salvataggio su Firestore:", error);
+              console.error("Error saving to Firestore:", error);
             }
             resolve();
           }
@@ -114,9 +114,9 @@ export const MusicPage: React.FC = () => {
 
     try {
       await Promise.all(uploadPromises);
-      alert("Tutti i brani sono stati caricati e registrati con successo!");
+      alert("Upload complete!");
     } catch (error) {
-      alert("Si è verificato un errore durante il caricamento di alcuni brani.");
+      alert("An error occurred during upload.");
     } finally {
       setIsUploading(false);
       setFilesToUpload(null);
@@ -124,7 +124,7 @@ export const MusicPage: React.FC = () => {
       if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-
+  
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setFilesToUpload(event.target.files);
@@ -134,22 +134,21 @@ export const MusicPage: React.FC = () => {
   return (
     <div className="container mx-auto p-4 space-y-6 pb-32">
       
-      {/* ========================================================== */}
-      {/* NUOVO PLAYER CARD - VISIBILE SOLO DURANTE LA RIPRODUZIONE   */}
-      {/* ========================================================== */}
       {currentTrack && (
         <Card className="w-full max-w-lg mx-auto p-4 space-y-4 sticky top-4 z-10">
           <div className="flex items-center gap-4">
-            {/* Placeholder per la copertina dell'album (Fase 2) */}
-            <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
-              <Music2 size={48} className="text-gray-400 dark:text-gray-500" />
-            </div>
+            {currentTrack.coverURL ? (
+              <img src={currentTrack.coverURL} alt={`Cover for ${currentTrack.title}`} className="w-24 h-24 rounded-md object-cover" />
+            ) : (
+              <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
+                <Music2 size={48} className="text-gray-400 dark:text-gray-500" />
+              </div>
+            )}
             <div className="flex-1 overflow-hidden">
               <p className="font-bold text-lg truncate">{currentTrack.title}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{currentTrack.artist}</p>
             </div>
           </div>
-          {/* Controlli di riproduzione */}
           <div className="flex items-center justify-center gap-4">
             <Button onClick={playPrevious} variant="ghost" size="icon" className="w-12 h-12">
               <SkipBack size={24} />
@@ -164,29 +163,28 @@ export const MusicPage: React.FC = () => {
         </Card>
       )}
 
-      {/* LISTA DEI BRANI CARICATI */}
       <div className="w-full max-w-lg mx-auto space-y-2">
         <h2 className="text-xl font-bold px-2 pt-4">La Mia Libreria</h2>
-        {songs.length > 0 ? (
-          songs.map((song, index) => (
-            <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => handlePlaySong(index)}>
-              <div className="flex-1 overflow-hidden">
-                <p className="font-semibold truncate">{song.title}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
+        {songs.map((song, index) => (
+          <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => handlePlaySong(index)}>
+            {song.coverURL ? (
+              <img src={song.coverURL} alt="" className="w-12 h-12 rounded-md object-cover" />
+            ) : (
+              <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
+                <Music2 size={24} className="text-gray-400" />
               </div>
-              <Button size="icon" variant="ghost">
-                <Play />
-              </Button>
-            </Card>
-          ))
-        ) : (
-          <Card className="p-4 text-center text-gray-500 dark:text-gray-400">
-            <p>Nessun brano trovato. Caricane uno per iniziare!</p>
+            )}
+            <div className="flex-1 overflow-hidden">
+              <p className="font-semibold truncate">{song.title}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
+            </div>
+            <Button size="icon" variant="ghost">
+              <Play />
+            </Button>
           </Card>
-        )}
+        ))}
       </div>
 
-      {/* Card per l'upload */}
       <Card className="w-full max-w-lg mx-auto">
         <button onClick={() => setIsUploaderOpen(!isUploaderOpen)} className="w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -207,7 +205,7 @@ export const MusicPage: React.FC = () => {
               </div>
             )}
             <Button onClick={handleUpload} className="w-full" disabled={isUploading || !filesToUpload}>
-              {isUploading ? 'Caricamento in corso...' : `Carica ${filesToUpload?.length || 0} brani`}
+              {isUploading ? 'Caricamento...' : `Carica ${filesToUpload?.length || 0} brani`}
             </Button>
             {isUploading && uploadProgress.length > 0 && (
               <div className="space-y-2 pt-2">

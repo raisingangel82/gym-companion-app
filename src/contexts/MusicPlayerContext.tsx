@@ -1,5 +1,3 @@
-// src/contexts/MusicPlayerContext.tsx
-
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react';
 
 export interface Song {
@@ -7,6 +5,7 @@ export interface Song {
   title: string;
   artist: string;
   downloadURL: string;
+  coverURL?: string | null;
 }
 
 interface MusicContextType {
@@ -24,57 +23,56 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-
-  const audioRef = useRef<HTMLAudioElement>(null);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
   const loadPlaylistAndPlay = useCallback((newPlaylist: Song[], startIndex: number) => {
+    // LOG 1: Vediamo se questa funzione viene chiamata correttamente
+    console.log(`[MusicContext] Chiamata loadPlaylistAndPlay con indice ${startIndex}`, newPlaylist);
     setPlaylist(newPlaylist);
     setCurrentTrackIndex(startIndex);
-    setIsPlaying(true);
   }, []);
-
-  const togglePlayPause = useCallback(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-    }
-  }, [isPlaying]);
 
   const playNext = useCallback(() => {
     if (playlist.length > 0 && currentTrackIndex !== null) {
       const nextIndex = (currentTrackIndex + 1) % playlist.length;
       setCurrentTrackIndex(nextIndex);
-      setIsPlaying(true);
     }
   }, [playlist, currentTrackIndex]);
-
+  
   const playPrevious = useCallback(() => {
     if (playlist.length > 0 && currentTrackIndex !== null) {
       const prevIndex = (currentTrackIndex - 1 + playlist.length) % playlist.length;
       setCurrentTrackIndex(prevIndex);
-      setIsPlaying(true);
     }
   }, [playlist, currentTrackIndex]);
 
+  const togglePlayPause = useCallback(() => {
+    if (currentTrack) {
+      setIsPlaying(prev => !prev);
+    }
+  }, [currentTrack]);
+  
   useEffect(() => {
-    if (audioRef.current && currentTrack) {
-      if (audioRef.current.src !== currentTrack.downloadURL) {
-        audioRef.current.src = currentTrack.downloadURL;
-      }
+    const audio = audioRef.current;
+    if (!audio) return;
 
-      if (isPlaying) {
-        audioRef.current.play().catch(e => console.error("Errore di riproduzione:", e));
-      } else {
-        audioRef.current.pause();
-      }
+    // LOG 2: Vediamo se e quando la traccia cambia nel context
+    console.log('[MusicContext] useEffect attivato. La traccia corrente è:', currentTrack);
+
+    if (currentTrack && audio.src !== currentTrack.downloadURL) {
+      audio.src = currentTrack.downloadURL;
+      setIsPlaying(true);
+    }
+
+    if (isPlaying) {
+      audio.play().catch(e => console.error("Errore di riproduzione:", e));
+    } else {
+      audio.pause();
     }
   }, [currentTrack, isPlaying]);
-
 
   const value = {
     currentTrack,
@@ -90,8 +88,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <audio
         ref={audioRef}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
         onEnded={playNext}
         onError={(e) => console.error("Errore elemento audio:", e)}
       />
