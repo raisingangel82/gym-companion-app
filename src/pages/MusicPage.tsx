@@ -45,16 +45,7 @@ interface DeezerSearchResult {
   };
 }
 
-// --- FUNZIONI HELPER ---
 
-const readMediaTags = (file: File): Promise<CustomTagType> => {
-  return new Promise((resolve, reject) => {
-    jsmediatags.read(file, {
-      onSuccess: (tag) => resolve(tag as CustomTagType),
-      onError: (error) => reject(error),
-    });
-  });
-};
 
 const sanitizeQuery = (title: string) => {
   let cleanedTitle = title.replace(/\.[^/.]+$/, "").replace(/[_-]/g, ' ');
@@ -139,7 +130,7 @@ export const MusicPage: React.FC = () => {
 
         uploadTask.on('state_changed',
           (snapshot) => {
-            const progress = (snapshot.bytesferred / snapshot.totalBytes) * 100;
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, progress } : p));
           },
           (error) => {
