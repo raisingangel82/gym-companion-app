@@ -9,24 +9,9 @@ import { getApp } from "firebase/app";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import jsmediatags from 'jsmediatags';
 
 // --- INTERFACCE E TIPI ---
 
-interface MediaTagPicture {
-  data: number[];
-  format: string;
-}
-
-interface MediaTags {
-  title?: string;
-  artist?: string;
-  picture?: MediaTagPicture;
-}
-
-interface CustomTagType {
-  tags: MediaTags;
-}
 
 interface UploadProgress {
   fileName: string;
