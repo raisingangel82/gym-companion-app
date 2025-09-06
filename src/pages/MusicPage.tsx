@@ -31,6 +31,7 @@ interface CustomTagType {
 interface UploadProgress {
   fileName: string;
   progress: number;
+  status: 'pending' | 'uploading' | 'processing' | 'complete' | 'error';
 }
 
 interface DeezerSearchResult {
@@ -69,15 +70,13 @@ const searchTracksOnDeezer = async (query: string): Promise<DeezerSearchResult[]
   const app = getApp();
   const functions = getFunctions(app, 'europe-west1');
   const getMusicMetadata = httpsCallable(functions, 'getMusicMetadata');
-
   try {
-    console.log(`Chiamata alla Cloud Function 'getMusicMetadata' in europe-west1 con la query: "${query}"`);
     const result = await getMusicMetadata({ query: query });
     const data = result.data as DeezerSearchResult[];
     return data.slice(0, 10);
   } catch (error) {
     console.error("Errore nella chiamata alla Cloud Function:", error);
-    alert("Si è verificato un errore durante la ricerca. Controlla la console per i dettagli.");
+    // Rimuoviamo l'alert per non interrompere il flusso in background
     return null;
   }
 };
@@ -95,7 +94,6 @@ export const MusicPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Stati per la modale di ricerca
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<DeezerSearchResult[]>([]);
   const [songToUpdate, setSongToUpdate] = useState<Song | null>(null);
@@ -130,87 +128,80 @@ export const MusicPage: React.FC = () => {
 
     setIsUploading(true);
     const filesArray = Array.from(filesToUpload);
-    setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0 })));
+    setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0, status: 'pending' })));
 
-    const uploadPromises = filesArray.map(async (file) => {
-      // 1. Inizializziamo i metadati con il nome del file come fallback
-      let metadata = { 
-        title: file.name.replace(/\.[^/.]+$/, ""), 
-        artist: "Artista Sconosciuto", 
-        coverURL: null as string | null 
-      };
-      
-      // 2. Proviamo a leggere i tag ID3 locali
-      try {
-        const tags = await readMediaTags(file);
-        if (tags.tags.title) metadata.title = tags.tags.title;
-        if (tags.tags.artist) metadata.artist = tags.tags.artist;
-      } catch (error) {
-        console.warn(`Nessun tag ID3 trovato per ${file.name}. Si procederà con la ricerca online.`);
-      }
-
-      // 3. RICERCA AUTOMATICA DEI METADATI ONLINE (LOGICA CORRETTA)
-      const cleanQuery = sanitizeQuery(metadata.title);
-      const searchResults = await searchTracksOnDeezer(cleanQuery);
-      
-      if (searchResults && searchResults.length > 0) {
-        const bestMatch = searchResults[0];
-        console.log(`Corrispondenza trovata per "${cleanQuery}": ${bestMatch.title} - ${bestMatch.artist.name}`);
+    const uploadPromises = filesArray.map((file) => {
+      return new Promise<void>((resolve, reject) => {
+        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'uploading' } : p));
         
-        metadata.title = bestMatch.title;
-        metadata.coverURL = bestMatch.album.cover_xl;
-        if (metadata.artist === "Artista Sconosciuto") {
-          metadata.artist = bestMatch.artist.name;
-        }
-      }
+        const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-      // 4. Procediamo con il caricamento del brano
-      const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      // 5. Gestiamo il processo di upload e il salvataggio su Firestore
-      return new Promise<string>((resolve, reject) => {
         uploadTask.on('state_changed',
           (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(prev => 
-              prev.map(item => 
-                item.fileName === file.name ? { ...item, progress: progress } : item
-              )
-            );
-           },
+            const progress = (snapshot.bytesferred / snapshot.totalBytes) * 100;
+            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, progress } : p));
+          },
           (error) => {
-            reject({ fileName: file.name, error });
+            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
+            console.error(`Errore di upload per ${file.name}:`, error);
+            reject(error);
           },
           async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             try {
-              const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
-              await addDoc(songsCollectionRef, {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'processing', progress: 100 } : p));
+
+              const initialData = {
                 fileName: file.name,
-                title: metadata.title,
-                artist: metadata.artist,
-                coverURL: metadata.coverURL,
+                title: sanitizeQuery(file.name),
+                artist: "Artista Sconosciuto",
+                coverURL: null,
                 downloadURL: downloadURL,
                 uploadedAt: serverTimestamp()
-              });
-              resolve(file.name);
-            } catch (error) {
-              reject({ fileName: file.name, error });
+              };
+              const songsCollectionRef = collection(db, 'users', user.uid, 'songs');
+              const docRef = await addDoc(songsCollectionRef, initialData);
+
+              // Avviamo la ricerca metadati in background
+              (async () => {
+                try {
+                  const searchResults = await searchTracksOnDeezer(sanitizeQuery(file.name));
+                  if (searchResults && searchResults.length > 0) {
+                    const bestMatch = searchResults[0];
+                    const updatedData = {
+                      title: bestMatch.title,
+                      artist: bestMatch.artist.name,
+                      coverURL: bestMatch.album.cover_xl,
+                    };
+                    await updateDoc(doc(db, 'users', user.uid, 'songs', docRef.id), updatedData);
+                    console.log(`Metadati per ${file.name} aggiornati in background.`);
+                  }
+                } catch (metaError) {
+                  console.error(`Ricerca metadati fallita in background per ${file.name}:`, metaError);
+                }
+              })();
+
+              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete' } : p));
+              resolve();
+            } catch (dbError) {
+              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
+              console.error(`Errore di salvataggio DB per ${file.name}:`, dbError);
+              reject(dbError);
             }
           }
         );
       });
     });
 
-    const results = await Promise.allSettled(uploadPromises);
-    const successfulUploads = results.filter(r => r.status === 'fulfilled').length;
-    alert(`${successfulUploads} su ${filesArray.length} brani caricati con successo.`);
+    await Promise.allSettled(uploadPromises);
 
-    setIsUploading(false);
-    setFilesToUpload(null);
-    setUploadProgress([]);
-    if(fileInputRef.current) fileInputRef.current.value = "";
+    setTimeout(() => {
+      setIsUploading(false);
+      setFilesToUpload(null);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+    }, 3000);
   };
   
   const handleOpenMetadataModal = (song: Song) => {
@@ -292,6 +283,16 @@ export const MusicPage: React.FC = () => {
     setSongToUpdate(null);
     setSearchQuery('');
     setIsSearching(false);
+  };
+
+  const getStatusText = (status: UploadProgress['status']) => {
+    switch(status) {
+      case 'uploading': return 'Caricamento...';
+      case 'processing': return 'Elaborazione...';
+      case 'complete': return 'Completato!';
+      case 'error': return 'Errore!';
+      default: return 'In attesa...';
+    }
   };
 
   return (
@@ -412,15 +413,22 @@ export const MusicPage: React.FC = () => {
               </div>
             )}
             <Button onClick={handleUpload} className="w-full" disabled={isUploading || !filesToUpload}>
-              {isUploading ? 'Caricamento...' : `Carica ${filesToUpload?.length || 0} brani`}
+              {isUploading ? 'In corso...' : `Carica ${filesToUpload?.length || 0} brani`}
             </Button>
+            
             {isUploading && uploadProgress.length > 0 && (
-              <div className="space-y-2 pt-2">
+              <div className="space-y-3 pt-2">
                 {uploadProgress.map(item => (
                   <div key={item.fileName}>
-                    <p className="text-sm truncate">{item.fileName}</p>
+                    <div className="flex justify-between items-center text-sm mb-1">
+                      <p className="font-medium truncate pr-2">{item.fileName}</p>
+                      <p className="text-gray-500 dark:text-gray-400 flex-shrink-0">{getStatusText(item.status)}</p>
+                    </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${item.progress.toFixed(2)}%` }}></div>
+                      <div 
+                        className={`h-2.5 rounded-full transition-all duration-300 ${item.status === 'error' ? 'bg-red-500' : 'bg-blue-600'}`} 
+                        style={{ width: `${item.progress.toFixed(2)}%` }}
+                      ></div>
                     </div>
                   </div>
                 ))}
