@@ -98,7 +98,7 @@ export const MusicPage: React.FC = () => {
     }
   };
   
-  // FUNZIONE DI UPLOAD SEMPLIFICATA E CORRETTA
+  // VERSIONE DI UPLOAD SEMPLIFICATA E ROBUSTA
   const handleUpload = async () => {
     if (!filesToUpload || filesToUpload.length === 0 || !user) return;
 
@@ -127,10 +127,9 @@ export const MusicPage: React.FC = () => {
             try {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
               
-              // SALVIAMO IL BRANO CON I DATI MINIMI INDISPENSABILI
               const initialData = {
                 fileName: file.name,
-                title: sanitizeQuery(file.name), // Usiamo il nome del file come titolo iniziale
+                title: sanitizeQuery(file.name),
                 artist: "Artista Sconosciuto",
                 coverURL: null,
                 downloadURL: downloadURL,
@@ -171,7 +170,6 @@ export const MusicPage: React.FC = () => {
     setIsSearching(true);
     const results = await searchTracksOnDeezer(searchQuery);
     setIsSearching(false);
-
     if (results && results.length > 0) {
       setSearchResults(results);
       setModalStep('results');
@@ -244,13 +242,7 @@ export const MusicPage: React.FC = () => {
       {currentTrack && (
         <Card className="w-full max-w-lg mx-auto p-4 space-y-4 sticky top-4 z-10">
           <div className="flex items-center gap-4">
-            {currentTrack.coverURL ? (
-              <img src={currentTrack.coverURL} alt={`Cover for ${currentTrack.title}`} className="w-24 h-24 rounded-md object-cover" />
-            ) : (
-              <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0">
-                <Music2 size={48} className="text-gray-400 dark:text-gray-500" />
-              </div>
-            )}
+            {currentTrack.coverURL ? (<img src={currentTrack.coverURL} alt={`Cover for ${currentTrack.title}`} className="w-24 h-24 rounded-md object-cover" />) : (<div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0"><Music2 size={48} className="text-gray-400 dark:text-gray-500" /></div>)}
             <div className="flex-1 overflow-hidden">
               <p className="font-bold text-lg truncate">{currentTrack.title}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{currentTrack.artist}</p>
