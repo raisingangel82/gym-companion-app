@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle, RefreshCw, Trash2, X, Search } from 'lucide-react';
 import { storage, db } from '../services/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getApp } from "firebase/app"; 
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -14,8 +14,8 @@ import { Card } from '../components/ui/Card';
 
 interface UploadProgress {
   fileName: string;
-  progress: number;
-  status: 'pending' | 'uploading' | 'complete' | 'error';
+  progress: number; // In questo nuovo flusso, il progresso sarà 0 o 100
+  status: 'pending' | 'processing' | 'uploading' | 'complete' | 'error';
 }
 
 interface DeezerSearchResult {
@@ -30,6 +30,16 @@ interface DeezerSearchResult {
 }
 
 // --- FUNZIONI HELPER ---
+
+// Converte un file in una stringa Base64 per inviarlo alla Cloud Function
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
 
 const sanitizeQuery = (title: string) => {
   let cleanedTitle = title.replace(/\.[^/.]+$/, "").replace(/[_-]/g, ' ');
@@ -50,7 +60,7 @@ const searchTracksOnDeezer = async (query: string): Promise<DeezerSearchResult[]
     const data = result.data as DeezerSearchResult[];
     return data.slice(0, 10);
   } catch (error) {
-    console.error("Errore nella chiamata alla Cloud Function:", error);
+    console.error("Errore nella chiamata alla Cloud Function 'getMusicMetadata':", error);
     alert("Si è verificato un errore durante la ricerca. Controlla la console per i dettagli.");
     return null;
   }
@@ -98,7 +108,6 @@ export const MusicPage: React.FC = () => {
     }
   };
   
-  // VERSIONE DI UPLOAD SEMPLIFICATA E ROBUSTA
   const handleUpload = async () => {
     if (!filesToUpload || filesToUpload.length === 0 || !user) return;
 
@@ -106,50 +115,39 @@ export const MusicPage: React.FC = () => {
     const filesArray = Array.from(filesToUpload);
     setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0, status: 'pending' })));
 
-    const uploadPromises = filesArray.map((file) => {
-      return new Promise<void>((resolve, reject) => {
-        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'uploading' } : p));
-        
-        const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
+    const uploadPromises = filesArray.map(async (file) => {
+      try {
+        // Step 1: Converti il file in Base64 e aggiorna lo stato
+        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'processing', progress: 50 } : p));
+        const fileContent = await fileToBase64(file);
 
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, progress } : p));
-          },
-          (error) => {
-            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
-            console.error(`Errore di upload per ${file.name}:`, error);
-            reject(error);
-          },
-          async () => {
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              
-              const initialData = {
-                fileName: file.name,
-                title: sanitizeQuery(file.name),
-                artist: "Artista Sconosciuto",
-                coverURL: null,
-                downloadURL: downloadURL,
-                uploadedAt: serverTimestamp()
-              };
-              await addDoc(collection(db, 'users', user.uid, 'songs'), initialData);
+        // Step 2: Chiama la Cloud Function per l'upload
+        const functions = getFunctions(getApp(), 'europe-west1');
+        const uploader = httpsCallable(functions, 'uploadSong');
+        const result = await uploader({ fileContent, fileName: file.name });
 
-              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p));
-              resolve();
-            } catch (dbError) {
-              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
-              console.error(`Errore di salvataggio DB per ${file.name}:`, dbError);
-              reject(dbError);
-            }
-          }
-        );
-      });
+        const { downloadURL } = result.data as { downloadURL: string };
+        if (!downloadURL) throw new Error("URL non restituito dalla funzione di upload.");
+
+        // Step 3: Salva i metadati base su Firestore
+        const initialData = {
+          fileName: file.name,
+          title: sanitizeQuery(file.name),
+          artist: "Artista Sconosciuto",
+          coverURL: null,
+          downloadURL: downloadURL,
+          uploadedAt: serverTimestamp()
+        };
+        await addDoc(collection(db, 'users', user.uid, 'songs'), initialData);
+
+        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p));
+      } catch (error) {
+        console.error(`Errore nel processo di upload per ${file.name}:`, error);
+        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error', progress: 100 } : p));
+      }
     });
 
-    await Promise.allSettled(uploadPromises);
+    await Promise.all(uploadPromises);
 
     setTimeout(() => {
       setIsUploading(false);
@@ -229,7 +227,8 @@ export const MusicPage: React.FC = () => {
 
   const getStatusText = (status: UploadProgress['status']) => {
     switch(status) {
-      case 'uploading': return 'Caricamento...';
+      case 'processing': return 'Elaborazione...';
+      case 'uploading': return 'Salvataggio...';
       case 'complete': return 'Completato!';
       case 'error': return 'Errore!';
       default: return 'In attesa...';
@@ -302,7 +301,7 @@ export const MusicPage: React.FC = () => {
                       <p className="text-gray-500 dark:text-gray-400 flex-shrink-0">{getStatusText(item.status)}</p>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                      <div className={`h-2.5 rounded-full transition-all duration-300 ${item.status === 'error' ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${item.progress.toFixed(2)}%` }}></div>
+                      <div className={`h-2.5 rounded-full transition-all duration-300 ${item.status === 'error' ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${item.progress}%` }}></div>
                     </div>
                   </div>
                 ))}

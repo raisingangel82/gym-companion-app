@@ -1,14 +1,15 @@
-import { initializeApp } from "firebase-admin/app";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getStorage } from "firebase-admin/storage";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { VertexAI } from "@google-cloud/vertexai";
-import fetch from "node-fetch"; // <-- IMPORT AGGIUNTO per le chiamate API
+import fetch from "node-fetch";
 
-// Inizializza l'app di Firebase Admin.
-// Questo è necessario per far funzionare le Cloud Functions nell'ambiente del server.
-initializeApp();
+// Inizializzazione sicura: esegue solo se non già inizializzata.
+if (getApps().length === 0) {
+  initializeApp();
+}
 
 // Configurazione condivisa per tutte le funzioni.
-// Centralizzare queste opzioni rende più facile la gestione e garantisce coerenza.
 const functionOptions = { 
   region: "europe-west1",      // Regione europea per ridurre la latenza.
   timeoutSeconds: 300,         // Timeout esteso a 5 minuti per le chiamate AI più lunghe.
@@ -295,9 +296,6 @@ L'utente ha richiesto un'analisi dettagliata delle sue performance basata sulla 
   }
 });
 
-// ======================================================================================
-// NUOVA FUNZIONE PER I METADATI MUSICALI
-// ======================================================================================
 
 /**
  * Funzione Callable per cercare metadati di brani musicali.
@@ -336,5 +334,57 @@ export const getMusicMetadata = onCall(functionOptions, async (request) => {
     console.error("Errore durante la ricerca di metadati su Deezer:", error);
     if (error instanceof HttpsError) throw error; // Se è già un nostro errore, lo rilanciamo.
     throw new HttpsError("internal", "Impossibile completare la ricerca dei metadati.");
+  }
+});
+
+
+/**
+ * Funzione Callable per caricare un file musicale su Storage.
+ * Bypassa i problemi di CORS del client.
+ */
+export const uploadSong = onCall(functionOptions, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "È necessario essere autenticati per caricare un file.");
+  }
+  
+  const { fileContent, fileName } = request.data;
+  if (!fileContent || !fileName || typeof fileContent !== 'string' || typeof fileName !== 'string') {
+    throw new HttpsError("invalid-argument", "Dati 'fileContent' e 'fileName' di tipo stringa sono richiesti.");
+  }
+
+  const userId = request.auth.uid;
+  const bucket = getStorage().bucket();
+  const filePath = `music/${userId}/${fileName}`;
+  const file = bucket.file(filePath);
+
+  try {
+    const base64Data = fileContent.split(',')[1];
+    if (!base64Data) {
+        throw new HttpsError("invalid-argument", "Il formato del fileContent non è un Data URL valido.");
+    }
+
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'audio/mpeg',
+      },
+    });
+
+    // Rendiamo il file leggibile pubblicamente
+    await file.makePublic();
+
+    // Costruiamo l'URL pubblico manualmente
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+    
+    console.log(`File reso pubblico e URL generato: ${publicUrl}`);
+    
+    // Restituiamo il nuovo URL pubblico al client
+    return { downloadURL: publicUrl };
+
+  } catch (error) {
+    console.error("!!! ERRORE CRITICO DENTRO 'uploadSong' !!!", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Impossibile salvare il file su Storage.");
   }
 });
