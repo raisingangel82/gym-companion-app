@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle, RefreshCw, Trash2, X, Search } from 'lucide-react';
 import { storage, db } from '../services/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, uploadBytes, deleteObject } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getApp } from "firebase/app"; 
 import { getFunctions, httpsCallable } from 'firebase/functions';
