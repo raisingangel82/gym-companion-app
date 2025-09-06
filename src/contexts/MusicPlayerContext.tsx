@@ -6,18 +6,18 @@ export interface Song {
   artist: string;
   downloadURL: string;
   coverURL?: string | null;
-  fileName: string; // <-- AGGIUNGI QUESTA RIGA
+  fileName: string;
 }
 
 interface MusicContextType {
   currentTrack: Song | null;
   isPlaying: boolean;
-  isShuffleActive: boolean; // NUOVO STATO
+  isShuffleActive: boolean;
   loadPlaylistAndPlay: (playlist: Song[], startIndex: number) => void;
   togglePlayPause: () => void;
   playNext: () => void;
   playPrevious: () => void;
-  toggleShuffle: () => void; // NUOVA FUNZIONE
+  toggleShuffle: () => void;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
@@ -26,7 +26,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isShuffleActive, setIsShuffleActive] = useState(false); // DEFINIZIONE DELLO STATO
+  const [isShuffleActive, setIsShuffleActive] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -37,12 +37,10 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setCurrentTrackIndex(startIndex);
   }, []);
 
-  // NUOVA FUNZIONE PER ATTIVARE/DISATTIVARE LO SHUFFLE
   const toggleShuffle = useCallback(() => {
     setIsShuffleActive(prev => !prev);
   }, []);
 
-  // LOGICA AGGIORNATA PER playNext
   const playNext = useCallback(() => {
     if (playlist.length <= 1) return;
 
@@ -50,7 +48,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       let nextIndex;
       do {
         nextIndex = Math.floor(Math.random() * playlist.length);
-      } while (playlist.length > 1 && nextIndex === currentTrackIndex); // Evita di ripetere lo stesso brano
+      } while (playlist.length > 1 && nextIndex === currentTrackIndex);
       setCurrentTrackIndex(nextIndex);
     } else {
       const nextIndex = ((currentTrackIndex ?? -1) + 1) % playlist.length;
@@ -58,16 +56,14 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [playlist, currentTrackIndex, isShuffleActive]);
   
-  // LOGICA AGGIORNATA PER playPrevious
   const playPrevious = useCallback(() => {
     if (playlist.length <= 1) return;
 
     if (isShuffleActive) {
-      // In modalità shuffle, "previous" è semplicemente un altro brano casuale
       let prevIndex;
       do {
         prevIndex = Math.floor(Math.random() * playlist.length);
-      } while (playlist.length > 1 && prevIndex === currentTrackIndex); // Evita di ripetere lo stesso brano
+      } while (playlist.length > 1 && prevIndex === currentTrackIndex);
       setCurrentTrackIndex(prevIndex);
     } else {
       const prevIndex = ((currentTrackIndex ?? 0) - 1 + playlist.length) % playlist.length;
@@ -81,33 +77,43 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentTrack]);
   
+  // === MODIFICA CHIAVE: ABBIAMO DIVISO IL VECCHIO useEffect IN DUE ===
+
+  // Effetto #1: Gestisce il CAMBIO di traccia.
+  // Si attiva solo quando 'currentTrack' cambia.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio && currentTrack) {
+      // Se la traccia è diversa da quella attuale, la carichiamo e avviamo la riproduzione.
+      if (audio.src !== currentTrack.downloadURL) {
+        audio.src = currentTrack.downloadURL;
+        setIsPlaying(true);
+      }
+    }
+  }, [currentTrack]);
+
+  // Effetto #2: Gestisce il PLAY/PAUSA.
+  // Si attiva solo quando 'isPlaying' cambia.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Se cambia la traccia, aggiorna la sorgente e avvia la riproduzione
-    if (currentTrack && audio.src !== currentTrack.downloadURL) {
-      audio.src = currentTrack.downloadURL;
-      setIsPlaying(true); // Imposta isPlaying a true per far partire la nuova traccia
-    }
-
-    // Gestisce play/pausa in base allo stato
     if (isPlaying) {
       audio.play().catch(e => console.error("Errore di riproduzione:", e));
     } else {
       audio.pause();
     }
-  }, [currentTrack, isPlaying]);
+  }, [isPlaying]);
 
   const value = {
     currentTrack,
     isPlaying,
-    isShuffleActive, // Esponiamo il nuovo stato
+    isShuffleActive,
     loadPlaylistAndPlay,
     togglePlayPause,
     playNext,
     playPrevious,
-    toggleShuffle, // Esponiamo la nuova funzione
+    toggleShuffle,
   };
 
   return (
@@ -115,7 +121,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <audio
         ref={audioRef}
-        onEnded={playNext} // Quando un brano finisce, chiama playNext (che ora gestisce lo shuffle)
+        onEnded={playNext}
         onError={(e) => console.error("Errore elemento audio:", e)}
       />
     </MusicContext.Provider>
