@@ -133,28 +133,42 @@ export const MusicPage: React.FC = () => {
     setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0 })));
 
     const uploadPromises = filesArray.map(async (file) => {
-      let metadata = { title: file.name.replace(/\.[^/.]+$/, ""), artist: "Artista Sconosciuto", coverURL: null as string | null };
+      // 1. Inizializziamo i metadati con il nome del file come fallback
+      let metadata = { 
+        title: file.name.replace(/\.[^/.]+$/, ""), 
+        artist: "Artista Sconosciuto", 
+        coverURL: null as string | null 
+      };
       
+      // 2. Proviamo a leggere i tag ID3 locali
       try {
         const tags = await readMediaTags(file);
         if (tags.tags.title) metadata.title = tags.tags.title;
         if (tags.tags.artist) metadata.artist = tags.tags.artist;
-
-        const { picture } = tags.tags;
-        if (picture) {
-          const { data, format } = picture;
-          const blob = new Blob([new Uint8Array(data)], { type: format });
-          const coverRef = ref(storage, `covers/${user.uid}/${metadata.title}-cover.jpg`);
-          await uploadBytes(coverRef, blob);
-          metadata.coverURL = await getDownloadURL(coverRef);
-        }
       } catch (error) {
-        console.warn(`Could not read metadata for ${file.name}`, error);
+        console.warn(`Nessun tag ID3 trovato per ${file.name}. Si procederà con la ricerca online.`);
       }
 
+      // 3. RICERCA AUTOMATICA DEI METADATI ONLINE (LOGICA CORRETTA)
+      const cleanQuery = sanitizeQuery(metadata.title);
+      const searchResults = await searchTracksOnDeezer(cleanQuery);
+      
+      if (searchResults && searchResults.length > 0) {
+        const bestMatch = searchResults[0];
+        console.log(`Corrispondenza trovata per "${cleanQuery}": ${bestMatch.title} - ${bestMatch.artist.name}`);
+        
+        metadata.title = bestMatch.title;
+        metadata.coverURL = bestMatch.album.cover_xl;
+        if (metadata.artist === "Artista Sconosciuto") {
+          metadata.artist = bestMatch.artist.name;
+        }
+      }
+
+      // 4. Procediamo con il caricamento del brano
       const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
+      // 5. Gestiamo il processo di upload e il salvataggio su Firestore
       return new Promise<string>((resolve, reject) => {
         uploadTask.on('state_changed',
           (snapshot) => {
@@ -190,18 +204,8 @@ export const MusicPage: React.FC = () => {
     });
 
     const results = await Promise.allSettled(uploadPromises);
-
     const successfulUploads = results.filter(r => r.status === 'fulfilled').length;
-    const failedUploads = results.filter(r => r.status === 'rejected');
-    
-    let alertMessage = `${successfulUploads} su ${filesArray.length} brani caricati con successo.`;
-
-    if (failedUploads.length > 0) {
-      alertMessage += `\n${failedUploads.length} caricamenti sono falliti.`;
-      console.error("Dettagli dei caricamenti falliti:", failedUploads.map(r => (r as PromiseRejectedResult).reason));
-    }
-    
-    alert(alertMessage);
+    alert(`${successfulUploads} su ${filesArray.length} brani caricati con successo.`);
 
     setIsUploading(false);
     setFilesToUpload(null);
