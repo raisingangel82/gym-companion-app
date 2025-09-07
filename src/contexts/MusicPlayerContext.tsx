@@ -32,17 +32,26 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
 
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
+  // MODIFICA: Aggiungiamo esplicitamente l'istruzione di avviare la riproduzione
   const loadPlaylistAndPlay = useCallback((newPlaylist: Song[], startIndex: number) => {
     setPlaylist(newPlaylist);
     setCurrentTrackIndex(startIndex);
+    setIsPlaying(true); // <-- Dice esplicitamente di suonare
   }, []);
 
   const toggleShuffle = useCallback(() => {
     setIsShuffleActive(prev => !prev);
   }, []);
 
+  // MODIFICA: Aggiungiamo esplicitamente l'istruzione di avviare la riproduzione
   const playNext = useCallback(() => {
-    if (playlist.length <= 1) return;
+    if (playlist.length === 0) return;
+    if (playlist.length === 1) {
+        // Se c'è una sola canzone, falla ripartire
+        if(audioRef.current) audioRef.current.currentTime = 0;
+        setIsPlaying(true);
+        return;
+    }
 
     if (isShuffleActive) {
       let nextIndex;
@@ -54,8 +63,10 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       const nextIndex = ((currentTrackIndex ?? -1) + 1) % playlist.length;
       setCurrentTrackIndex(nextIndex);
     }
+    setIsPlaying(true); // <-- Dice esplicitamente di suonare
   }, [playlist, currentTrackIndex, isShuffleActive]);
   
+  // MODIFICA: Aggiungiamo esplicitamente l'istruzione di avviare la riproduzione
   const playPrevious = useCallback(() => {
     if (playlist.length <= 1) return;
 
@@ -69,6 +80,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       const prevIndex = ((currentTrackIndex ?? 0) - 1 + playlist.length) % playlist.length;
       setCurrentTrackIndex(prevIndex);
     }
+    setIsPlaying(true); // <-- Dice esplicitamente di suonare
   }, [playlist, currentTrackIndex, isShuffleActive]);
 
   const togglePlayPause = useCallback(() => {
@@ -77,33 +89,32 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentTrack]);
   
-  // === MODIFICA CHIAVE: ABBIAMO DIVISO IL VECCHIO useEffect IN DUE ===
-
-  // Effetto #1: Gestisce il CAMBIO di traccia.
-  // Si attiva solo quando 'currentTrack' cambia.
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (audio && currentTrack) {
-      // Se la traccia è diversa da quella attuale, la carichiamo e avviamo la riproduzione.
-      if (audio.src !== currentTrack.downloadURL) {
-        audio.src = currentTrack.downloadURL;
-        setIsPlaying(true);
-      }
-    }
-  }, [currentTrack]);
-
-  // Effetto #2: Gestisce il PLAY/PAUSA.
-  // Si attiva solo quando 'isPlaying' cambia.
+  // MODIFICA: Torniamo a un unico useEffect, ma più robusto
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Se cambia la traccia, aggiorna la sorgente
+    if (currentTrack && audio.src !== currentTrack.downloadURL) {
+      audio.src = currentTrack.downloadURL;
+    }
+
+    // Gestiamo play/pausa in base allo stato
     if (isPlaying) {
-      audio.play().catch(e => console.error("Errore di riproduzione:", e));
+      // audio.play() restituisce una Promise. La gestiamo per evitare errori
+      // di "autoplay" bloccato dal browser, specialmente dopo onEnded.
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error("Errore di riproduzione automatica:", error);
+          // Se il browser blocca l'autoplay, aggiorniamo lo stato per riflettere la realtà
+          setIsPlaying(false);
+        });
+      }
     } else {
       audio.pause();
     }
-  }, [isPlaying]);
+  }, [currentTrack, isPlaying]);
 
   const value = {
     currentTrack,
