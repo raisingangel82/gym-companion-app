@@ -29,6 +29,12 @@ interface DeezerSearchResult {
   };
 }
 
+interface ConfirmationMetadata {
+  title: string;
+  artist: string;
+  coverURL: string | null;
+}
+
 // --- FUNZIONI HELPER ---
 
 const sanitizeQuery = (title: string) => {
@@ -69,12 +75,17 @@ export const MusicPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Stati per la modale di ricerca
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<DeezerSearchResult[]>([]);
   const [songToUpdate, setSongToUpdate] = useState<Song | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalStep, setModalStep] = useState<'input' | 'results'>('input');
+  
+  // Stati per la modale di conferma
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [selectedMetadata, setSelectedMetadata] = useState<ConfirmationMetadata | null>(null);
 
   type SortOrder = 'uploadedAt_desc' | 'title_asc' | 'artist_asc';
   const [sortOrder, setSortOrder] = useState<SortOrder>('uploadedAt_desc');
@@ -178,7 +189,7 @@ export const MusicPage: React.FC = () => {
     setSongToUpdate(song);
     setSearchQuery(sanitizeQuery(song.title));
     setModalStep('input');
-    setIsModalOpen(true);
+    setIsSearchModalOpen(true);
   };
 
   const handleExecuteSearch = async () => {
@@ -194,25 +205,32 @@ export const MusicPage: React.FC = () => {
     }
   };
 
-  const handleSelectMetadata = async (deezerTrack: DeezerSearchResult) => {
-    if (!user || !songToUpdate) return;
-    const finalTitle = window.prompt("Conferma o modifica il titolo della traccia:", deezerTrack.title);
-    if (finalTitle === null) {
-      handleCloseModal();
-      return;
-    }
-    const songRef = doc(db, 'users', user.uid, 'songs', songToUpdate.id);
-    const updatedData = {
+  const handleSelectMetadata = (deezerTrack: DeezerSearchResult) => {
+    setSelectedMetadata({
+      title: deezerTrack.title,
+      artist: deezerTrack.artist.name,
       coverURL: deezerTrack.album.cover_xl,
-      title: finalTitle,
-    };
+    });
+    setIsSearchModalOpen(false);
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmUpdate = async (finalMetadata: ConfirmationMetadata) => {
+    if (!user || !songToUpdate) return;
+
+    const songRef = doc(db, 'users', user.uid, 'songs', songToUpdate.id);
     try {
-      await updateDoc(songRef, updatedData);
+      await updateDoc(songRef, {
+        title: finalMetadata.title,
+        artist: finalMetadata.artist,
+        coverURL: finalMetadata.coverURL,
+      });
       alert(`Metadati per "${songToUpdate.title}" aggiornati con successo!`);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del documento:", error);
+      alert("Si è verificato un errore durante l'aggiornamento.");
     } finally {
-      handleCloseModal();
+      handleCloseConfirmModal();
     }
   };
 
@@ -235,12 +253,18 @@ export const MusicPage: React.FC = () => {
     }
   };
   
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseSearchModal = () => {
+    setIsSearchModalOpen(false);
     setSearchResults([]);
     setSongToUpdate(null);
     setSearchQuery('');
     setIsSearching(false);
+  };
+
+  const handleCloseConfirmModal = () => {
+    setIsConfirmModalOpen(false);
+    setSelectedMetadata(null);
+    setSongToUpdate(null);
   };
 
   const getStatusText = (status: UploadProgress['status']) => {
@@ -336,7 +360,7 @@ export const MusicPage: React.FC = () => {
         )}
       </Card>
 
-      {isModalOpen && (
+      {isSearchModalOpen && (
         <MetadataSearchModal 
           step={modalStep}
           query={searchQuery}
@@ -345,7 +369,15 @@ export const MusicPage: React.FC = () => {
           isSearching={isSearching}
           results={searchResults} 
           onSelect={handleSelectMetadata}
-          onClose={handleCloseModal}
+          onClose={handleCloseSearchModal}
+        />
+      )}
+      
+      {isConfirmModalOpen && selectedMetadata && (
+        <ConfirmMetadataModal
+          metadata={selectedMetadata}
+          onConfirm={handleConfirmUpdate}
+          onClose={handleCloseConfirmModal}
         />
       )}
     </div>
@@ -353,9 +385,10 @@ export const MusicPage: React.FC = () => {
 };
 
 
-// --- COMPONENTE MODALE ---
-interface ModalProps { step: 'input' | 'results'; query: string; setQuery: (q: string) => void; onSearch: () => void; isSearching: boolean; results: DeezerSearchResult[]; onSelect: (track: DeezerSearchResult) => void; onClose: () => void; }
-const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, results, onSelect, onClose }: ModalProps) => {
+// --- COMPONENTI MODALI ---
+
+interface SearchModalProps { step: 'input' | 'results'; query: string; setQuery: (q: string) => void; onSearch: () => void; isSearching: boolean; results: DeezerSearchResult[]; onSelect: (track: DeezerSearchResult) => void; onClose: () => void; }
+const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, results, onSelect, onClose }: SearchModalProps) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -384,6 +417,49 @@ const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, res
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+interface ConfirmModalProps {
+  metadata: ConfirmationMetadata;
+  onConfirm: (finalMetadata: ConfirmationMetadata) => void;
+  onClose: () => void;
+}
+
+const ConfirmMetadataModal = ({ metadata, onConfirm, onClose }: ConfirmModalProps) => {
+  const [title, setTitle] = useState(metadata.title);
+  const [artist, setArtist] = useState(metadata.artist);
+
+  const handleConfirmClick = () => {
+    onConfirm({ title, artist, coverURL: metadata.coverURL });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+          <h3 className="font-bold text-lg">Conferma Metadati</h3>
+          <Button size="icon" variant="ghost" onClick={onClose}><X size={20}/></Button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex justify-center">
+            <img src={metadata.coverURL || undefined} alt="Cover" className="w-32 h-32 rounded-md object-cover bg-gray-200 dark:bg-gray-700" />
+          </div>
+          <div>
+            <label htmlFor="title-confirm" className="text-sm font-medium text-gray-700 dark:text-gray-300">Titolo</label>
+            <input id="title-confirm" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label htmlFor="artist-confirm" className="text-sm font-medium text-gray-700 dark:text-gray-300">Artista</label>
+            <input id="artist-confirm" type="text" value={artist} onChange={(e) => setArtist(e.target.value)} className="mt-1 w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+        <div className="p-4 border-t dark:border-gray-700 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Annulla</Button>
+          <Button onClick={handleConfirmClick}>Salva Modifiche</Button>
+        </div>
       </div>
     </div>
   );
