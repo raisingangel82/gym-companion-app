@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { useState, useRef, useEffect, useMemo, type ChangeEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle, RefreshCw, Trash2, X, Search } from 'lucide-react';
 import { storage, db } from '../services/firebase';
-import { ref, deleteObject } from 'firebase/storage';
+import { ref, deleteObject, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { getApp } from "firebase/app"; 
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -14,8 +14,8 @@ import { Card } from '../components/ui/Card';
 
 interface UploadProgress {
   fileName: string;
-  progress: number; // In questo nuovo flusso, il progresso sarà 0 o 100
-  status: 'pending' | 'processing' | 'uploading' | 'complete' | 'error';
+  progress: number;
+  status: 'pending' | 'uploading' | 'complete' | 'error';
 }
 
 interface DeezerSearchResult {
@@ -30,16 +30,6 @@ interface DeezerSearchResult {
 }
 
 // --- FUNZIONI HELPER ---
-
-// Converte un file in una stringa Base64 per inviarlo alla Cloud Function
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
 
 const sanitizeQuery = (title: string) => {
   let cleanedTitle = title.replace(/\.[^/.]+$/, "").replace(/[_-]/g, ' ');
@@ -60,7 +50,7 @@ const searchTracksOnDeezer = async (query: string): Promise<DeezerSearchResult[]
     const data = result.data as DeezerSearchResult[];
     return data.slice(0, 10);
   } catch (error) {
-    console.error("Errore nella chiamata alla Cloud Function 'getMusicMetadata':", error);
+    console.error("Errore nella chiamata alla Cloud Function:", error);
     alert("Si è verificato un errore durante la ricerca. Controlla la console per i dettagli.");
     return null;
   }
@@ -86,6 +76,8 @@ export const MusicPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [modalStep, setModalStep] = useState<'input' | 'results'>('input');
 
+  type SortOrder = 'uploadedAt_desc' | 'title_asc' | 'artist_asc';
+  const [sortOrder, setSortOrder] = useState<SortOrder>('uploadedAt_desc');
 
   useEffect(() => {
     if (!user) return;
@@ -98,8 +90,23 @@ export const MusicPage: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  const sortedSongs = useMemo(() => {
+    const sortableSongs = [...songs];
+    switch (sortOrder) {
+      case 'title_asc':
+        return sortableSongs.sort((a, b) => a.title.localeCompare(b.title));
+      case 'artist_asc':
+        return sortableSongs.sort((a, b) => a.artist.localeCompare(b.artist));
+      case 'uploadedAt_desc':
+      default:
+        return songs;
+    }
+  }, [songs, sortOrder]);
+
   const handlePlaySong = (index: number) => {
-    loadPlaylistAndPlay(songs, index);
+    const songToPlay = sortedSongs[index];
+    const originalPlaylistIndex = songs.findIndex(song => song.id === songToPlay.id);
+    loadPlaylistAndPlay(songs, originalPlaylistIndex);
   };
   
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
@@ -115,39 +122,50 @@ export const MusicPage: React.FC = () => {
     const filesArray = Array.from(filesToUpload);
     setUploadProgress(filesArray.map(file => ({ fileName: file.name, progress: 0, status: 'pending' })));
 
-    const uploadPromises = filesArray.map(async (file) => {
-      try {
-        // Step 1: Converti il file in Base64 e aggiorna lo stato
-        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'processing', progress: 50 } : p));
-        const fileContent = await fileToBase64(file);
+    const uploadPromises = filesArray.map((file) => {
+      return new Promise<void>((resolve, reject) => {
+        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'uploading' } : p));
+        
+        const storageRef = ref(storage, `music/${user.uid}/${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-        // Step 2: Chiama la Cloud Function per l'upload
-        const functions = getFunctions(getApp(), 'europe-west1');
-        const uploader = httpsCallable(functions, 'uploadSong');
-        const result = await uploader({ fileContent, fileName: file.name });
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, progress } : p));
+          },
+          (error) => {
+            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
+            console.error(`Errore di upload per ${file.name}:`, error);
+            reject(error);
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              const initialData = {
+                fileName: file.name,
+                title: sanitizeQuery(file.name),
+                artist: "Artista Sconosciuto",
+                coverURL: null,
+                downloadURL: downloadURL,
+                uploadedAt: serverTimestamp()
+              };
+              await addDoc(collection(db, 'users', user.uid, 'songs'), initialData);
 
-        const { downloadURL } = result.data as { downloadURL: string };
-        if (!downloadURL) throw new Error("URL non restituito dalla funzione di upload.");
-
-        // Step 3: Salva i metadati base su Firestore
-        const initialData = {
-          fileName: file.name,
-          title: sanitizeQuery(file.name),
-          artist: "Artista Sconosciuto",
-          coverURL: null,
-          downloadURL: downloadURL,
-          uploadedAt: serverTimestamp()
-        };
-        await addDoc(collection(db, 'users', user.uid, 'songs'), initialData);
-
-        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p));
-      } catch (error) {
-        console.error(`Errore nel processo di upload per ${file.name}:`, error);
-        setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error', progress: 100 } : p));
-      }
+              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p));
+              resolve();
+            } catch (dbError) {
+              setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'error' } : p));
+              console.error(`Errore di salvataggio DB per ${file.name}:`, dbError);
+              reject(dbError);
+            }
+          }
+        );
+      });
     });
 
-    await Promise.all(uploadPromises);
+    await Promise.allSettled(uploadPromises);
 
     setTimeout(() => {
       setIsUploading(false);
@@ -227,8 +245,7 @@ export const MusicPage: React.FC = () => {
 
   const getStatusText = (status: UploadProgress['status']) => {
     switch(status) {
-      case 'processing': return 'Elaborazione...';
-      case 'uploading': return 'Salvataggio...';
+      case 'uploading': return 'Caricamento...';
       case 'complete': return 'Completato!';
       case 'error': return 'Errore!';
       default: return 'In attesa...';
@@ -236,10 +253,10 @@ export const MusicPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6 pb-32">
+    <div className="container mx-auto px-4 pb-4 space-y-6">
       
       {currentTrack && (
-        <Card className="w-full max-w-lg mx-auto p-4 space-y-4 sticky top-4 z-10">
+        <Card className="w-full max-w-lg mx-auto p-4 space-y-4 sticky top-0 z-10 rounded-t-none rounded-b-lg">
           <div className="flex items-center gap-4">
             {currentTrack.coverURL ? (<img src={currentTrack.coverURL} alt={`Cover for ${currentTrack.title}`} className="w-24 h-24 rounded-md object-cover" />) : (<div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0"><Music2 size={48} className="text-gray-400 dark:text-gray-500" /></div>)}
             <div className="flex-1 overflow-hidden">
@@ -258,10 +275,18 @@ export const MusicPage: React.FC = () => {
       )}
 
       <div className="w-full max-w-lg mx-auto space-y-2">
-        <h2 className="text-xl font-bold px-2 pt-4">La Mia Libreria</h2>
-        {songs.length > 0 ? (
-          songs.map((song, index) => (
-            <Card key={song.id} className="p-3 flex items-center gap-4 group hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
+        <div className="flex justify-between items-center px-2 pt-4">
+          <h2 className="text-xl font-bold">La Mia Libreria</h2>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant={sortOrder === 'uploadedAt_desc' ? 'default' : 'ghost'} onClick={() => setSortOrder('uploadedAt_desc')}>Recenti</Button>
+            <Button size="sm" variant={sortOrder === 'title_asc' ? 'default' : 'ghost'} onClick={() => setSortOrder('title_asc')}>Titolo</Button>
+            <Button size="sm" variant={sortOrder === 'artist_asc' ? 'default' : 'ghost'} onClick={() => setSortOrder('artist_asc')}>Artista</Button>
+          </div>
+        </div>
+        
+        {sortedSongs.length > 0 ? (
+          sortedSongs.map((song, index) => (
+            <Card key={song.id} className="p-3 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
               <div className="flex items-center gap-4 flex-1 overflow-hidden cursor-pointer" onClick={() => handlePlaySong(index)}>
                 {song.coverURL ? (<img src={song.coverURL} alt="" className="w-12 h-12 rounded-md object-cover" />) : (<div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center flex-shrink-0"><Music2 size={24} className="text-gray-400" /></div>)}
                 <div className="flex-1 overflow-hidden">
@@ -269,7 +294,7 @@ export const MusicPage: React.FC = () => {
                   <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{song.artist}</p>
                 </div>
               </div>
-              <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center text-gray-500">
                 <Button size="icon" variant="ghost" title="Cerca metadati online" onClick={(e) => { e.stopPropagation(); handleOpenMetadataModal(song); }}><RefreshCw size={18} /></Button>
                 <Button size="icon" variant="ghost" title="Elimina brano" className="text-red-500 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteSong(song); }}><Trash2 size={18} /></Button>
                 <Button size="icon" variant="ghost" title="Riproduci" onClick={(e) => { e.stopPropagation(); handlePlaySong(index); }}><Play size={20}/></Button>
@@ -301,7 +326,7 @@ export const MusicPage: React.FC = () => {
                       <p className="text-gray-500 dark:text-gray-400 flex-shrink-0">{getStatusText(item.status)}</p>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                      <div className={`h-2.5 rounded-full transition-all duration-300 ${item.status === 'error' ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${item.progress}%` }}></div>
+                      <div className={`h-2.5 rounded-full transition-all duration-300 ${item.status === 'error' ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${item.progress.toFixed(2)}%` }}></div>
                     </div>
                   </div>
                 ))}
