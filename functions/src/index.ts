@@ -1,8 +1,12 @@
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getStorage } from "firebase-admin/storage";
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { getAuth } from "firebase-admin/auth";
+import { onCall, HttpsError, onRequest } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 import { VertexAI } from "@google-cloud/vertexai";
 import fetch from "node-fetch";
+import busboy = require("busboy");
+import type { FileInfo } from "busboy";
 
 // Inizializzazione sicura: esegue solo se non già inizializzata.
 if (getApps().length === 0) {
@@ -11,32 +15,26 @@ if (getApps().length === 0) {
 
 // Configurazione condivisa per tutte le funzioni.
 const functionOptions = { 
-  region: "europe-west1",      // Regione europea per ridurre la latenza.
-  timeoutSeconds: 300,         // Timeout esteso a 5 minuti per le chiamate AI più lunghe.
+  region: "europe-west1",
+  timeoutSeconds: 300,
   cors: [
-    /localhost:\d+$/,          // Permette i test in ambiente di sviluppo locale.
-    "https://gym-companion-cb3af.web.app", // Dominio di hosting Firebase.
-    "https://gym-companion-app.vercel.app"  // Dominio di produzione su Vercel.
+    /localhost:\d+$/,
+    "https://gym-companion-cb3af.web.app",
+    "https://gym-companion-app.vercel.app"
   ] 
 };
 
 /**
  * Funzione Callable per generare un piano di allenamento con AI.
- * Riceve i dati anagrafici e gli obiettivi dell'utente per creare una scheda personalizzata.
  */
 export const generateAiWorkoutPlan = onCall(functionOptions, async (request) => {
-  // 1. Controllo di autenticazione
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "È necessario essere autenticati per generare un piano.");
   }
-
-  // 2. Validazione dei dati in input
   const userData = request.data;
   if (!userData || !userData.goal || !userData.experience || !userData.frequency) {
     throw new HttpsError("invalid-argument", "Dati utente incompleti per la generazione della scheda.");
   }
-  
-  // 3. Costruzione del Prompt per l'AI
   const prompt = `
 # RUOLO
 Sei "Alpha-Trainer", un'intelligenza artificiale esperta nella programmazione dell'allenamento basata su evidenze scientifiche.
@@ -72,23 +70,16 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
 ]
 \`\`\`
 `;
-
-  // 4. Esecuzione della chiamata all'AI e gestione della risposta
   try {
     const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
     const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
-
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
-
     if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
-    
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
-    
     const parsedJson = JSON.parse(jsonMatch[1]);
     return parsedJson;
-
   } catch (error) {
     console.error("Errore durante la generazione della scheda AI:", error);
     if (error instanceof HttpsError) throw error;
@@ -99,7 +90,6 @@ Genera un programma di allenamento dettagliato in formato JSON. Il programma dev
 
 /**
  * Funzione Callable per trovare un esercizio sostitutivo con AI.
- * Riceve un esercizio da cambiare e il motivo, fornendo alternative valide.
  */
 export const getExerciseSubstitution = onCall(functionOptions, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
@@ -107,7 +97,6 @@ export const getExerciseSubstitution = onCall(functionOptions, async (request) =
   if (!userProfile || !exerciseToSubstitute || !reason) {
     throw new HttpsError("invalid-argument", "Dati incompleti per la sostituzione dell'esercizio.");
   }
-
   const prompt = `
 # RUOLO
 Sei "Alpha-Trainer", un'intelligenza artificiale esperta in personal training, biomeccanica del movimento e adattamento dell'allenamento. La tua priorità assoluta è la sicurezza dell'utente, seguita dall'efficacia dell'allenamento.
@@ -139,43 +128,33 @@ Analizza la situazione e fornisci la migliore sostituzione possibile per l'eserc
 }
 \`\`\`
 `;
-
   try {
     const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
     const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
-
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
-
     if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
-    
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
     if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
-    
     const parsedJson = JSON.parse(jsonMatch[1]);
     return parsedJson;
-
-  } catch (error)
- {
-    console.error("Errore durante la sostituzione dell'esercizio:", error);
+  } catch (error) {
+    console.error("Errore during exercise substitution:", error);
     if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", "Impossibile ottenere una sostituzione dall'AI.");
+    throw new HttpsError("internal", "Unable to get a substitution from the AI.");
   }
 });
 
 
 /**
  * Funzione Callable per generare un report delle performance.
- * VERSIONE MIGLIORATA per un'analisi più profonda e dettagliata.
  */
 export const generatePerformanceReport = onCall(functionOptions, async (request) => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "È necessario essere autenticati.");
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication is required.");
   const { userProfile, workoutHistory, workoutName } = request.data;
   if (!userProfile || !workoutHistory || !workoutName) {
-    throw new HttpsError("invalid-argument", "Dati incompleti per la generazione del report.");
+    throw new HttpsError("invalid-argument", "Incomplete data for report generation.");
   }
-
-  // PROMPT DETTAGLIATO per un'analisi approfondita
   const prompt = `
 # RUOLO
 Sei "Alpha-Trainer", un'intelligenza artificiale d'élite specializzata in data science applicata alla performance atletica. Il tuo compito è trasformare un log di allenamento grezzo in un'analisi strategica approfondita, identificando trend, pattern e fornendo insight azionabili.
@@ -259,132 +238,167 @@ L'utente ha richiesto un'analisi dettagliata delle sue performance basata sulla 
 }
 \`\`\`
 `;
-
   try {
     const vertex_ai = new VertexAI({ project: 'gym-companion-cb3af', location: 'europe-west1' });
     const model = vertex_ai.getGenerativeModel({ model: 'gemini-2.5-pro' });
-
     const result = await model.generateContent(prompt);
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
-
-// ======================================================================================
-    // NUOVO LOG DI DEBUG: Stampiamo la risposta grezza dell'AI nei log di Firebase
     console.log("--- RAW AI RESPONSE ---");
     console.log(responseText);
     console.log("--- END RAW AI RESPONSE ---");
-// ======================================================================================
-
-    if (!responseText) throw new HttpsError("internal", "L'AI non ha generato una risposta valida.");
-    
+    if (!responseText) throw new HttpsError("internal", "The AI did not generate a valid response.");
     const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "La risposta AI non era nel formato JSON atteso.");
-    
-    // Aggiungo un try-catch specifico per il parsing del JSON per un debug migliore in futuro.
+    if (!jsonMatch || !jsonMatch[1]) throw new HttpsError("internal", "The AI response was not in the expected JSON format.");
     try {
       const parsedJson = JSON.parse(jsonMatch[1]);
       return parsedJson;
     } catch (parseError) {
-      console.error("Errore di parsing JSON dalla risposta AI:", parseError);
-      console.log("Risposta AI non valida ricevuta:", jsonMatch[1]);
-      throw new HttpsError("internal", "Formato JSON ricevuto dall'AI non valido.");
+      console.error("JSON parsing error from AI response:", parseError);
+      console.log("Invalid AI response received:", jsonMatch[1]);
+      throw new HttpsError("internal", "Invalid JSON format received from the AI.");
     }
-
   } catch (error) {
-    console.error("Errore durante la generazione del report:", error);
+    console.error("Error during report generation:", error);
     if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", "Impossibile generare il report AI.");
+    throw new HttpsError("internal", "Unable to generate the AI report.");
   }
 });
 
 
 /**
  * Funzione Callable per cercare metadati di brani musicali.
- * Agisce come un proxy sicuro verso l'API di Deezer.
  */
 export const getMusicMetadata = onCall(functionOptions, async (request) => {
-  // 1. Controllo di autenticazione
   if (!request.auth) {
-    throw new HttpsError("unauthenticated", "È necessario essere autenticati per cercare metadati.");
+    throw new HttpsError("unauthenticated", "Authentication is required to search for metadata.");
   }
-
-  // 2. Validazione dei dati in input
   const { query } = request.data;
   if (!query || typeof query !== 'string') {
-    throw new HttpsError("invalid-argument", "È necessaria una 'query' di tipo stringa.");
+    throw new HttpsError("invalid-argument", "A string 'query' is required.");
   }
-
-  // 3. Costruzione della richiesta e chiamata all'API esterna
   const searchUrl = `https://api.deezer.com/search?q=${encodeURIComponent(query)}`;
-
   try {
-    // La chiamata viene fatta dal server di Google, evitando problemi di CORS.
     const response = await fetch(searchUrl);
     if (!response.ok) {
-      throw new HttpsError("unavailable", "L'API di Deezer non è al momento raggiungibile.");
+      throw new HttpsError("unavailable", "The Deezer API is currently unreachable.");
     }
-    
-    // Specifichiamo un tipo per la risposta attesa da Deezer per maggiore sicurezza.
     const deezerResponse = await response.json() as { data?: unknown[] };
-
-    // 4. Restituzione dei dati al client
-    // Restituiamo l'array 'data' se esiste, altrimenti un array vuoto.
     return deezerResponse.data || [];
-
   } catch (error) {
-    console.error("Errore durante la ricerca di metadati su Deezer:", error);
-    if (error instanceof HttpsError) throw error; // Se è già un nostro errore, lo rilanciamo.
-    throw new HttpsError("internal", "Impossibile completare la ricerca dei metadati.");
+    console.error("Error searching for metadata on Deezer:", error);
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Could not complete the metadata search.");
   }
 });
 
 
 /**
- * Funzione Callable per caricare un file musicale su Storage.
- * Bypassa i problemi di CORS del client.
+ * --- NUOVA FUNZIONE DI UPLOAD con gestione manuale dei CORS ---
  */
-export const uploadSong = onCall(functionOptions, async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "È necessario essere autenticati per caricare un file.");
-  }
-  
-  const { fileContent, fileName } = request.data;
-  if (!fileContent || !fileName || typeof fileContent !== 'string' || typeof fileName !== 'string') {
-    throw new HttpsError("invalid-argument", "Dati 'fileContent' e 'fileName' di tipo stringa sono richiesti.");
-  }
+export const uploadMusicFile = onRequest(functionOptions, async (req, res) => {
+  // --- MODIFICA: Inizio del blocco di gestione manuale dei CORS ---
+  // Imposta gli header CORS per ogni richiesta in entrata.
+  // Questo garantisce che il browser riceva sempre la risposta corretta.
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    /localhost:\d+$/,
+    "https://gym-companion-cb3af.web.app",
+    "https://gym-companion-app.vercel.app",
+  ];
 
-  const userId = request.auth.uid;
-  const bucket = getStorage().bucket();
-  const filePath = `music/${userId}/${fileName}`;
-  const file = bucket.file(filePath);
-
-  try {
-    const base64Data = fileContent.split(',')[1];
-    if (!base64Data) {
-        throw new HttpsError("invalid-argument", "Il formato del fileContent non è un Data URL valido.");
+  // Controlla se l'origine della richiesta è nella nostra lista di domini permessi.
+  const isAllowed = allowedOrigins.some((allowedOrigin) => {
+    if (allowedOrigin instanceof RegExp) {
+      return allowedOrigin.test(origin || "");
     }
+    return origin === allowedOrigin;
+  });
 
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    await file.save(buffer, {
-      metadata: {
-        contentType: 'audio/mpeg',
-      },
+  if (isAllowed) {
+    res.set("Access-Control-Allow-Origin", origin);
+  }
+
+  // Gestione esplicita della richiesta di preflight (OPTIONS)
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.set("Access-Control-Max-Age", "3600");
+    res.status(204).send("");
+    return;
+  }
+  // --- MODIFICA: Fine del blocco di gestione manuale dei CORS ---
+
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+  const authToken = req.headers.authorization?.split("Bearer ")[1];
+  if (!authToken) {
+    res.status(401).json({ error: "Unauthorized: No auth token provided." });
+    return;
+  }
+  let decodedToken;
+  try {
+    decodedToken = await getAuth().verifyIdToken(authToken);
+  } catch (error) {
+    logger.error("Auth token verification failed", error);
+    res.status(401).json({ error: "Unauthorized: Invalid auth token." });
+    return;
+  }
+  const userId = decodedToken.uid;
+  const bb = busboy({ headers: req.headers });
+  const bucket = getStorage().bucket();
+  let uploadResult: { downloadURL: string; fileName: string; } | null = null;
+
+  bb.on("file", (fieldname: string, fileStream: NodeJS.ReadableStream, info: FileInfo) => {
+    const { filename } = info;
+    const filePath = `music/${userId}/${filename}`;
+    const storageFile = bucket.file(filePath);
+
+    logger.info(`Starting upload for ${filePath}`);
+
+    const writeStream = storageFile.createWriteStream({
+      metadata: { contentType: info.mimeType },
     });
 
-    // Rendiamo il file leggibile pubblicamente
-    await file.makePublic();
-
-    // Costruiamo l'URL pubblico manualmente
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+    fileStream.pipe(writeStream);
     
-    console.log(`File reso pubblico e URL generato: ${publicUrl}`);
-    
-    // Restituiamo il nuovo URL pubblico al client
-    return { downloadURL: publicUrl };
+    const promise = new Promise<void>((resolve, reject) => {
+        writeStream.on('finish', async () => {
+            logger.info(`Successfully uploaded ${filePath}`);
+            await storageFile.makePublic();
+            uploadResult = {
+                downloadURL: storageFile.publicUrl(),
+                fileName: filename,
+            };
+            resolve();
+        });
+        writeStream.on('error', (err) => {
+            logger.error(`Failed to upload ${filePath}`, err);
+            reject(new Error("File upload to storage failed."));
+        });
+    });
+    (req as any).fileUploadPromise = promise;
+  });
 
-  } catch (error) {
-    console.error("!!! ERRORE CRITICO DENTRO 'uploadSong' !!!", error);
-    if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", "Impossibile salvare il file su Storage.");
-  }
+  bb.on("finish", async () => {
+    try {
+        if ((req as any).fileUploadPromise) {
+            await (req as any).fileUploadPromise;
+        }
+        if (uploadResult) {
+            // Assicurati che gli header CORS siano presenti anche nella risposta finale.
+            if (isAllowed) {
+              res.set("Access-Control-Allow-Origin", origin);
+            }
+            res.status(200).json(uploadResult);
+        } else {
+            throw new Error("File processing did not complete correctly.");
+        }
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+  });
+
+  bb.end(req.rawBody);
 });
