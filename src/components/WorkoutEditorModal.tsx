@@ -2,8 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { Trash2, PlusCircle, Image as ImageIcon, ArrowUp, ArrowDown, Timer } from 'lucide-react';
-import { ExerciseFinder } from './ExerciseFinder';
+import { Trash2, PlusCircle, ArrowUp, ArrowDown, Timer } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import type { Workout, WorkoutData, Exercise } from '../types';
 
@@ -18,31 +17,21 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   const { activeTheme } = useTheme();
   const [name, setName] = useState('');
   const [exercises, setExercises] = useState<Partial<Exercise>[]>([]);
-  const [findingImageForIndex, setFindingImageForIndex] = useState<number | null>(null);
-
+  
   useEffect(() => {
     if (isOpen) {
       setName(workout?.name || '');
-      
-      // CORREZIONE 1: Dichiariamo esplicitamente il tipo di 'initialExercises'
       const initialExercises: Partial<Exercise>[] = workout?.exercises.length 
         ? workout.exercises.map(ex => ({ ...ex, restTimerType: ex.restTimerType || 'primary' }))
         : [{ name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }];
-      
       setExercises(initialExercises);
-      setFindingImageForIndex(null);
     }
   }, [isOpen, workout]);
   
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
+    if (isOpen) { document.body.style.overflow = 'hidden'; } 
+    else { document.body.style.overflow = 'auto'; }
+    return () => { document.body.style.overflow = 'auto'; };
   }, [isOpen]);
 
   const handleExerciseChange = (index: number, field: keyof Exercise, value: any) => {
@@ -65,11 +54,6 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     setExercises(newExercises);
   };
 
-  const handleImageSelected = (index: number, imageUrl: string) => {
-    handleExerciseChange(index, 'imageUrl', imageUrl);
-    setFindingImageForIndex(null);
-  };
-
   const addExercise = () => {
     setExercises([...exercises, { name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }]);
   };
@@ -88,34 +72,22 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
 
   const handleSave = () => {
     if (!name.trim()) return alert("Il nome della scheda non può essere vuoto.");
-    
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
-
     const finalizedExercises = validExercises.map(ex => {
       const baseExercise: Partial<Exercise> = {
         name: ex.name!,
         type: ex.type || 'strength',
-        // CORREZIONE 2: Sostituiamo 'null' con 'undefined' per allinearci al tipo
-        imageUrl: ex.imageUrl || undefined,
+        imageUrl: undefined, // Immagine non più supportata
         performance: ex.performance || [],
       };
-
       if (baseExercise.type === 'cardio') {
         return { ...baseExercise, duration: ex.duration || 0, speed: ex.speed || 0, level: ex.level || 0 };
       } else {
         return { ...baseExercise, sets: ex.sets || 0, reps: ex.reps || '0', weight: ex.weight || 0, restTimerType: ex.restTimerType || 'primary' };
       }
     }) as Exercise[];
-
     if (finalizedExercises.length === 0) return alert("La scheda deve contenere almeno un esercizio valido.");
-
-    const workoutDataToSave: WorkoutData = {
-      name: name,
-      exercises: finalizedExercises,
-      createdAt: workout?.createdAt || new Date(),
-      history: workout?.history || [],
-    };
-    
+    const workoutDataToSave: WorkoutData = { name: name, exercises: finalizedExercises, createdAt: workout?.createdAt || new Date(), history: workout?.history || [], };
     onSave(workoutDataToSave);
   };
 
@@ -143,53 +115,48 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
 
                   <div className="space-y-4">
                     {exercises.map((ex, index) => (
-                      <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-2">
+                      <div key={index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-3">
+                        {/* Sezione Nome e Azioni */}
                         <div className="flex items-center gap-2">
                            <Input value={ex.name ?? ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
-                           <select value={ex.type || 'strength'} onChange={(e) => handleExerciseChange(index, 'type', e.target.value)} className={selectClassName}>
-                             <option value="strength">Forza</option>
-                             <option value="cardio">Cardio</option>
-                           </select>
                            <div className="flex-shrink-0 flex items-center">
                             <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'up')} disabled={index === 0} className="text-gray-500"><ArrowUp size={16}/></Button>
                             <Button variant="ghost" size="icon" onClick={() => handleMoveExercise(index, 'down')} disabled={index === exercises.length - 1} className="text-gray-500"><ArrowDown size={16}/></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setFindingImageForIndex(findingImageForIndex === index ? null : index)} className="text-sky-500"><ImageIcon size={16} /></Button>
                             <Button variant="ghost" size="icon" onClick={() => removeExercise(index)} className="text-red-500"><Trash2 size={16} /></Button>
                           </div>
                         </div>
-                        {ex.type === 'cardio' ? (
-                          <div className="grid grid-cols-3 gap-2">
-                             <Input type="number" value={ex.duration ?? ''} onChange={(e) => handleExerciseChange(index, 'duration', Number(e.target.value))} placeholder="Durata (min)" />
-                             <Input type="number" value={ex.speed ?? ''} onChange={(e) => handleExerciseChange(index, 'speed', Number(e.target.value))} placeholder="Velocità" />
-                             <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
+                        
+                        {/* Sezione Tipo e Dati specifici (Mobile Friendly) */}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <select value={ex.type || 'strength'} onChange={(e) => handleExerciseChange(index, 'type', e.target.value)} className={`${selectClassName} sm:w-1/3`}>
+                             <option value="strength">Forza</option>
+                             <option value="cardio">Cardio</option>
+                           </select>
+                           <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 w-full">
+                            {ex.type === 'cardio' ? (
+                                <>
+                                 <Input type="number" value={ex.duration ?? ''} onChange={(e) => handleExerciseChange(index, 'duration', Number(e.target.value))} placeholder="Durata (min)" />
+                                 <Input type="number" value={ex.speed ?? ''} onChange={(e) => handleExerciseChange(index, 'speed', Number(e.target.value))} placeholder="Velocità" />
+                                 <Input type="number" value={ex.level ?? ''} onChange={(e) => handleExerciseChange(index, 'level', Number(e.target.value))} placeholder="Livello" />
+                                </>
+                            ) : (
+                                <>
+                                <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
+                                <Input value={ex.reps ?? ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
+                                <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
+                                </>
+                            )}
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-4 gap-2">
-                            <Input type="number" value={ex.sets ?? ''} onChange={(e) => handleExerciseChange(index, 'sets', Number(e.target.value))} placeholder="Sets" />
-                            <Input value={ex.reps ?? ''} onChange={(e) => handleExerciseChange(index, 'reps', e.target.value)} placeholder="Reps" />
-                            <Input type="number" value={ex.weight ?? ''} onChange={(e) => handleExerciseChange(index, 'weight', Number(e.target.value))} placeholder="Peso (kg)" />
+                        </div>
+                         {ex.type !== 'cardio' && (
                             <div className="relative">
                                <Timer size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                               <select 
-                                 value={ex.restTimerType || 'primary'} 
-                                 onChange={(e) => handleExerciseChange(index, 'restTimerType', e.target.value as 'primary' | 'secondary')} 
-                                 className={`${selectClassName} w-full pl-8`}
-                                 title="Seleziona tipo di riposo"
-                               >
-                                 <option value="primary">Principale</option>
-                                 <option value="secondary">Secondario</option>
+                               <select value={ex.restTimerType || 'primary'} onChange={(e) => handleExerciseChange(index, 'restTimerType', e.target.value as 'primary' | 'secondary')} className={`${selectClassName} w-full pl-8`} title="Seleziona tipo di riposo">
+                                 <option value="primary">Riposo Principale</option>
+                                 <option value="secondary">Riposo Secondario</option>
                                </select>
                             </div>
-                          </div>
-                        )}
-                        {findingImageForIndex === index && (
-                          <ExerciseFinder 
-                            exerciseName={ex.name ?? ''}
-                            onImageSelected={(imageUrl) => handleImageSelected(index, imageUrl)}
-                            onClose={() => setFindingImageForIndex(null)}
-                            activeTheme={activeTheme}
-                          />
-                        )}
+                         )}
                       </div>
                     ))}
                   </div>

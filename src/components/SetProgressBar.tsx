@@ -1,33 +1,32 @@
-import type { Exercise } from '../types';
+// src/components/SetProgressBar.tsx
 
-interface SetProgressBarProps {
-    exercise: Exercise;
-}
+import type { Exercise } from '../types';
+import { useTheme } from '../contexts/ThemeContext'; // 1. Importa il hook del tema
 
 export const SetProgressBar: React.FC<SetProgressBarProps> = ({ exercise }) => {
-    // Aggiunto un fallback a 0 se sets non è definito (per gli esercizi cardio)
+    const { activeTheme } = useTheme(); // 2. Recupera il tema attivo
+
     const { sets = 0, reps: targetReps, weight: targetWeight, performance } = exercise;
     
     const getSetColor = (setIndex: number): string => {
         const perf = performance?.[setIndex];
         if (!perf) {
-            return 'bg-gray-200 dark:bg-gray-700'; // Non completato
+            return 'bg-gray-200 dark:bg-gray-700';
         }
 
         const perfWeight = perf.weight || 0;
         const targetWeightNum = targetWeight || 0;
-        
-        // Aggiunto un fallback a 0 se perf.reps è undefined
         const perfReps = perf.reps || 0;
         const targetRepsNum = parseInt(String(targetReps).split(/[-|–]/)[0], 10) || 0;
 
         if (perfReps > targetRepsNum || perfWeight > targetWeightNum) {
-            return 'bg-sky-500'; // Blu - Migliore
+            return 'bg-sky-500'; 
         }
         if (perfReps < targetRepsNum || perfWeight < targetWeightNum) {
-            return 'bg-red-500'; // Rosso - Peggiore
+            return 'bg-red-500';
         }
-        return 'bg-green-500'; // Verde - In target
+        // 3. Usa la classe del tema attivo al posto del verde fisso
+        return activeTheme.bgClass;
     };
 
     return (
@@ -38,3 +37,8 @@ export const SetProgressBar: React.FC<SetProgressBarProps> = ({ exercise }) => {
         </div>
     );
 };
+
+// Aggiungo l'interfaccia delle props per completezza, nel caso non fosse già nello stesso file
+interface SetProgressBarProps {
+    exercise: Exercise;
+}

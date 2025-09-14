@@ -1,6 +1,10 @@
+// src/pages/MusicPage.tsx
+
 import { useState, useRef, useEffect, useMemo, type ChangeEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useMusic, type Song } from '../contexts/MusicPlayerContext';
+// MODIFICA: Importo useTheme
+import { useTheme } from '../contexts/ThemeContext';
 import { Music2, UploadCloud, ChevronDown, Play, Pause, SkipBack, SkipForward, Shuffle, RefreshCw, Trash2, X, Search } from 'lucide-react';
 import { storage, db, auth } from '../services/firebase';
 import { ref, deleteObject, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; 
@@ -31,7 +35,6 @@ interface ConfirmationMetadata {
   coverURL: string | null;
 }
 
-// --- MODIFICA: Le interfacce dei props dei modali sono state spostate qui ---
 interface SearchModalProps {
   step: 'input' | 'results';
   query: string;
@@ -48,8 +51,6 @@ interface ConfirmModalProps {
   onConfirm: (finalMetadata: ConfirmationMetadata) => void;
   onClose: () => void;
 }
-// --- FINE MODIFICA ---
-
 
 // --- FUNZIONI HELPER ---
 
@@ -84,6 +85,9 @@ const searchTracksOnDeezer = async (query: string): Promise<DeezerSearchResult[]
 export const MusicPage: React.FC = () => {
   const { user } = useAuth();
   const { currentTrack, isPlaying, isShuffleActive, loadPlaylistAndPlay, togglePlayPause, playNext, playPrevious, toggleShuffle } = useMusic();
+  // MODIFICA: Aggiunto hook useTheme
+  const { activeTheme } = useTheme();
+  
   const [songs, setSongs] = useState<Song[]>([]);
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
@@ -169,18 +173,9 @@ export const MusicPage: React.FC = () => {
           }, 
           async () => {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            const initialData = {
-              fileName: file.name,
-              title: sanitizeQuery(file.name),
-              artist: "Artista Sconosciuto",
-              coverURL: null,
-              downloadURL: downloadURL,
-              uploadedAt: serverTimestamp(),
-            };
+            const initialData = { fileName: file.name, title: sanitizeQuery(file.name), artist: "Artista Sconosciuto", coverURL: null, downloadURL: downloadURL, uploadedAt: serverTimestamp() };
             await addDoc(collection(db, 'users', currentUser.uid, 'songs'), initialData);
-            setUploadProgress(prev => prev.map(p => 
-              p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p
-            ));
+            setUploadProgress(prev => prev.map(p => p.fileName === file.name ? { ...p, status: 'complete', progress: 100 } : p));
             resolve();
           }
         );
@@ -222,11 +217,7 @@ export const MusicPage: React.FC = () => {
   };
 
   const handleSelectMetadata = (deezerTrack: DeezerSearchResult) => {
-    setSelectedMetadata({
-      title: deezerTrack.title,
-      artist: deezerTrack.artist.name,
-      coverURL: deezerTrack.album.cover_xl,
-    });
+    setSelectedMetadata({ title: deezerTrack.title, artist: deezerTrack.artist.name, coverURL: deezerTrack.album.cover_xl });
     setIsSearchModalOpen(false);
     setIsConfirmModalOpen(true);
   };
@@ -235,11 +226,7 @@ export const MusicPage: React.FC = () => {
     if (!user || !songToUpdate) return;
     const songRef = doc(db, 'users', user.uid, 'songs', songToUpdate.id);
     try {
-      await updateDoc(songRef, {
-        title: finalMetadata.title,
-        artist: finalMetadata.artist,
-        coverURL: finalMetadata.coverURL,
-      });
+      await updateDoc(songRef, { title: finalMetadata.title, artist: finalMetadata.artist, coverURL: finalMetadata.coverURL });
       alert(`Metadati per "${songToUpdate.title}" aggiornati con successo!`);
     } catch (error) {
       console.error("Errore durante l'aggiornamento del documento:", error);
@@ -249,10 +236,7 @@ export const MusicPage: React.FC = () => {
   };
 
   const handleDeleteSong = async (song: Song) => {
-    if (!user) return;
-    if (!window.confirm(`Sei sicuro di voler eliminare "${song.title}"? L'azione è irreversibile.`)) {
-      return;
-    }
+    if (!user || !window.confirm(`Sei sicuro di voler eliminare "${song.title}"? L'azione è irreversibile.`)) return;
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'songs', song.id));
       const audioFileRef = ref(storage, `music/${user.uid}/${song.fileName}`);
@@ -263,19 +247,8 @@ export const MusicPage: React.FC = () => {
     }
   };
   
-  const handleCloseSearchModal = () => {
-    setIsSearchModalOpen(false);
-    setSearchResults([]);
-    setSongToUpdate(null);
-    setSearchQuery('');
-    setIsSearching(false);
-  };
-
-  const handleCloseConfirmModal = () => {
-    setIsConfirmModalOpen(false);
-    setSelectedMetadata(null);
-    setSongToUpdate(null);
-  };
+  const handleCloseSearchModal = () => { setIsSearchModalOpen(false); setSearchResults([]); setSongToUpdate(null); setSearchQuery(''); setIsSearching(false); };
+  const handleCloseConfirmModal = () => { setIsConfirmModalOpen(false); setSelectedMetadata(null); setSongToUpdate(null); };
 
   const getStatusText = (status: UploadProgress['status']) => {
     switch(status) {
@@ -351,7 +324,8 @@ export const MusicPage: React.FC = () => {
             <input type="file" accept="audio/*" multiple ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
             <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full" disabled={isUploading}>Scegli File...</Button>
             {filesToUpload && filesToUpload.length > 0 && (<div className='text-center text-sm text-gray-500 dark:text-gray-400'>{filesToUpload.length} brano(i) selezionato(i).</div>)}
-            <Button onClick={handleUpload} className="w-full" disabled={isUploading || !filesToUpload}>{isUploading ? 'In corso...' : `Carica ${filesToUpload?.length || 0} brani`}</Button>
+            {/* MODIFICA: Aggiunto colore del tema al pulsante di upload */}
+            <Button onClick={handleUpload} className={`w-full text-white ${activeTheme.bgClass}`} disabled={isUploading || !filesToUpload}>{isUploading ? 'In corso...' : `Carica ${filesToUpload?.length || 0} brani`}</Button>
             {isUploading && uploadProgress.length > 0 && (
               <div className="space-y-3 pt-2">
                 {uploadProgress.map(item => (
@@ -398,6 +372,9 @@ export const MusicPage: React.FC = () => {
 
 // --- COMPONENTI MODALI ---
 const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, results, onSelect, onClose }: SearchModalProps) => {
+  // MODIFICA: Aggiunto hook useTheme
+  const { activeTheme } = useTheme();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -409,7 +386,8 @@ const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, res
           <div className="p-6 space-y-4">
             <label htmlFor="search-query" className="text-sm font-medium text-gray-700 dark:text-gray-300">Inserisci i termini di ricerca</label>
             <input id="search-query" type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onSearch(); }} className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500" placeholder="Es. Queen Bohemian Rhapsody" />
-            <Button onClick={onSearch} className="w-full" disabled={isSearching}>
+            {/* MODIFICA: Aggiunto colore del tema al pulsante di ricerca */}
+            <Button onClick={onSearch} className={`w-full text-white ${activeTheme.bgClass}`} disabled={isSearching}>
               {isSearching ? (<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>) : (<div className="flex items-center justify-center gap-2"><Search size={18} /> Cerca</div>)}
             </Button>
           </div>
@@ -432,6 +410,9 @@ const MetadataSearchModal = ({ step, query, setQuery, onSearch, isSearching, res
 };
 
 const ConfirmMetadataModal = ({ metadata, onConfirm, onClose }: ConfirmModalProps) => {
+  // MODIFICA: Aggiunto hook useTheme
+  const { activeTheme } = useTheme();
+
   const [title, setTitle] = useState(metadata.title);
   const [artist, setArtist] = useState(metadata.artist);
 
@@ -461,7 +442,8 @@ const ConfirmMetadataModal = ({ metadata, onConfirm, onClose }: ConfirmModalProp
         </div>
         <div className="p-4 border-t dark:border-gray-700 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>Annulla</Button>
-          <Button variant="default" onClick={handleConfirmClick}>Salva Modifiche</Button>
+          {/* MODIFICA: Aggiunto colore del tema al pulsante di salvataggio */}
+          <Button className={`text-white ${activeTheme.bgClass}`} onClick={handleConfirmClick}>Salva Modifiche</Button>
         </div>
       </div>
     </div>

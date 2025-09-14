@@ -1,3 +1,5 @@
+// src/pages/StatsPage.tsx
+
 import { useMemo, useState, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -7,7 +9,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
 import { ReportModal, type ReportData } from '../components/ReportModal';
-import { BarChart3, TrendingUp, Info } from 'lucide-react';
+// MODIFICA: Importo ProModal
+import { ProModal } from '../components/ProModal';
+import { BarChart3, TrendingUp, Info, FileText } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -24,21 +28,9 @@ interface ChartDataPoint {
   value: number;
 }
 
-// ================================================================================================
-// NUOVA AGGIUNTA: Funzione di utilità per sanificare i dati prima dell'invio a Firebase
-// ================================================================================================
-/**
- * Naviga ricorsivamente un oggetto o un array e sostituisce
- * tutti i valori NaN con 0. Questo previene errori di serializzazione JSON.
- * @param data L'oggetto o l'array da "pulire".
- * @returns L'oggetto o l'array sanificato, pronto per la serializzazione JSON.
- */
 function sanitizeDataForJSON(data: any): any {
-  if (Array.isArray(data)) {
-    // Se è un array, applica la funzione a ogni elemento
-    return data.map(item => sanitizeDataForJSON(item));
-  } else if (data !== null && typeof data === 'object') {
-    // Se è un oggetto, applica la funzione a ogni valore delle sue proprietà
+  if (Array.isArray(data)) { return data.map(item => sanitizeDataForJSON(item)); }
+  if (data !== null && typeof data === 'object') {
     const sanitizedObject: { [key: string]: any } = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
@@ -46,32 +38,15 @@ function sanitizeDataForJSON(data: any): any {
       }
     }
     return sanitizedObject;
-  } else if (typeof data === 'number' && isNaN(data)) {
-    // Questa è la logica chiave: se è un numero ed è NaN, restituisci 0
-    return 0;
   }
-  // Altrimenti, restituisci il valore così com'è
+  if (typeof data === 'number' && isNaN(data)) { return 0; }
   return data;
 }
 
-
 const getMuscleGroupForExercise = (exerciseName: string): string => {
   const normalizedName = exerciseName.toLowerCase().trim();
-  const map: Record<string, string> = {
-    'curl': 'Bicipiti',
-    'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti',
-    'panca': 'Petto', 'bench press': 'Petto', 'chest press': 'Petto', 'croci': 'Petto', 'push up': 'Petto',
-    'trazioni': 'Dorsali', 'lat machine': 'Dorsali', 'rematore': 'Dorsali', 'pull down': 'Dorsali', 'pulley': 'Dorsali', 'vertical traction': 'Dorsali',
-    'squat': 'Gambe', 'leg press': 'Gambe', 'affondi': 'Gambe', 'leg extension': 'Gambe', 'leg curl': 'Gambe', 'stacco': 'Gambe', 'deadlift': 'Gambe', 'hip thrust': 'Gambe', 'step up': 'Gambe',
-    'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle', 'face pull': 'Spalle', 'rear delt': 'Spalle',
-    'crunch': 'Addome', 'plank': 'Addome', 'leg raise': 'Addome', 'twist': 'Addome',
-  };
-
-  for (const key in map) {
-    if (normalizedName.includes(key)) {
-      return map[key];
-    }
-  }
+  const map: Record<string, string> = { 'curl': 'Bicipiti', 'french press': 'Tricipiti', 'push down': 'Tricipiti', 'triceps station': 'Tricipiti', 'dips': 'Tricipiti', 'panca': 'Petto', 'bench press': 'Petto', 'chest press': 'Petto', 'croci': 'Petto', 'push up': 'Petto', 'trazioni': 'Dorsali', 'lat machine': 'Dorsali', 'rematore': 'Dorsali', 'pull down': 'Dorsali', 'pulley': 'Dorsali', 'vertical traction': 'Dorsali', 'squat': 'Gambe', 'leg press': 'Gambe', 'affondi': 'Gambe', 'leg extension': 'Gambe', 'leg curl': 'Gambe', 'stacco': 'Gambe', 'deadlift': 'Gambe', 'hip thrust': 'Gambe', 'step up': 'Gambe', 'shoulder press': 'Spalle', 'military press': 'Spalle', 'lento avanti': 'Spalle', 'alzate laterali': 'Spalle', 'face pull': 'Spalle', 'rear delt': 'Spalle', 'crunch': 'Addome', 'plank': 'Addome', 'leg raise': 'Addome', 'twist': 'Addome' };
+  for (const key in map) { if (normalizedName.includes(key)) { return map[key]; } }
   return 'Altro';
 };
 
@@ -81,15 +56,18 @@ const formatDate = (dateString: string) => {
 
 export const StatsPage: React.FC = () => {
   const { workouts } = useWorkouts();
-  const { registerAction } = usePageAction();
+  const { setActionConfig } = usePageAction();
   const { theme, activeTheme } = useTheme();
   const { user } = useAuth();
   
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  // MODIFICA: Aggiunto stato per il modale Pro
+  const [isProModalOpen, setIsProModalOpen] = useState(false);
 
   const aggregatedStats = useMemo(() => {
+    // ...logica invariata...
     const stats: Record<string, Record<string, number>> = {};
     workouts.forEach(workout => {
       if (!workout.history || !Array.isArray(workout.history)) return;
@@ -104,21 +82,13 @@ export const StatsPage: React.FC = () => {
             dailyTotals['Cardio'] += totalDuration;
           } else {
             const muscleGroup = getMuscleGroupForExercise(exercise.name);
-            const tonnage = exercise.performance.reduce((sum, set) => {
-                return sum + ((Number(set.reps) || 0) * (Number(set.weight) || 0));
-            }, 0);
+            const tonnage = exercise.performance.reduce((sum, set) => { return sum + ((Number(set.reps) || 0) * (Number(set.weight) || 0)); }, 0);
             if (!dailyTotals[muscleGroup]) dailyTotals[muscleGroup] = 0;
             dailyTotals[muscleGroup] += tonnage;
           }
         });
         const sessionDate = new Date(session.date).toISOString().split('T')[0];
-        for (const group in dailyTotals) {
-            if (dailyTotals[group] > 0) {
-                if (!stats[group]) stats[group] = {};
-                if (!stats[group][sessionDate]) stats[group][sessionDate] = 0;
-                stats[group][sessionDate] += dailyTotals[group];
-            }
-        }
+        for (const group in dailyTotals) { if (dailyTotals[group] > 0) { if (!stats[group]) stats[group] = {}; if (!stats[group][sessionDate]) stats[group][sessionDate] = 0; stats[group][sessionDate] += dailyTotals[group]; } }
       });
     });
     const chartData: Record<string, ChartDataPoint[]> = {};
@@ -139,106 +109,82 @@ export const StatsPage: React.FC = () => {
   }, [availableGroups, selectedGroup]);
   
   const handleGenerateReport = async () => {
-    if (!user || isGeneratingReport) return;
+    if (isGeneratingReport) return;
 
-    const combinedHistory = workouts
-      .flatMap(w => w.history || [])
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    if (combinedHistory.length === 0) {
-        alert("Nessun allenamento con una cronologia per generare un report.");
-        return;
-    }
-
-    setIsGeneratingReport(true);
-    setReportData(null);
-    setIsReportModalOpen(true);
-
-    try {
-        const functions = getFunctions(getApp(), 'europe-west1');
-
-        // MODIFICA RICHIESTA: Aggiunta l'opzione di timeout per estendere l'attesa a 3 minuti
-        const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport', { timeout: 180000 });
-        
-        const userProfile = { goal: user.goal, injuries: user.injuries };
-        
-        const payload = { 
-            userProfile, 
-            workoutHistory: combinedHistory,
-            workoutName: "Riepilogo Generale"
-        };
-        
-        const sanitizedPayload = sanitizeDataForJSON(payload);
-        
-        const result = await generatePerformanceReport(sanitizedPayload);
-
-        setReportData(result.data as ReportData);
-
-    } catch (error) {
-        console.error("Errore durante la generazione del report:", error);
-        alert("Si è verificato un errore durante la generazione del report.");
-        setIsReportModalOpen(false);
-    } finally {
-        setIsGeneratingReport(false);
+    // MODIFICA: Controlla il piano dell'utente qui dentro
+    if (user?.plan === 'Pro') {
+      const combinedHistory = workouts.flatMap(w => w.history || []).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      if (combinedHistory.length === 0) { alert("Nessun dato storico per generare un report."); return; }
+      
+      setIsGeneratingReport(true);
+      setReportData(null);
+      setIsReportModalOpen(true);
+      try {
+          const functions = getFunctions(getApp(), 'europe-west1');
+          const generatePerformanceReport = httpsCallable(functions, 'generatePerformanceReport', { timeout: 180000 });
+          const userProfile = { goal: user.goal, injuries: user.injuries };
+          const payload = { userProfile, workoutHistory: combinedHistory, workoutName: "Riepilogo Generale" };
+          const sanitizedPayload = sanitizeDataForJSON(payload);
+          const result = await generatePerformanceReport(sanitizedPayload);
+          setReportData(result.data as ReportData);
+      } catch (error) {
+          console.error("Errore durante la generazione del report:", error);
+          alert("Si è verificato un errore durante la generazione del report.");
+          setIsReportModalOpen(false);
+      } finally {
+          setIsGeneratingReport(false);
+      }
+    } else {
+      // Se l'utente non è Pro, apre il modale di upsell
+      setIsProModalOpen(true);
     }
   };
   
   useEffect(() => {
-    if (availableGroups.length > 0 && user?.plan === 'Pro') {
-      registerAction(handleGenerateReport);
+    // MODIFICA: La condizione ora non controlla più il piano dell'utente
+    if (availableGroups.length > 0) {
+      setActionConfig({
+        icon: FileText,
+        label: "Report",
+        onClick: handleGenerateReport,
+        disabled: isGeneratingReport
+      });
     } else {
-      registerAction(null);
+      setActionConfig(null);
     }
-    return () => registerAction(null);
-  }, [availableGroups, user, workouts]);
+    return () => setActionConfig(null);
+  }, [availableGroups, user, isGeneratingReport, setActionConfig]);
 
   const selectedGroupData = aggregatedStats[selectedGroup] || [];
   const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
-  
   const yAxisLabel = selectedGroup === 'Cardio' ? 'Durata (min)' : 'Tonnellaggio (kg)';
   const legendLabel = selectedGroup === 'Cardio' ? 'Durata' : 'Volume';
 
   return (
     <div className="container mx-auto p-4 space-y-6">
       <Card>
-        <div className="flex items-center gap-2">
-          <BarChart3 />
-          <h2 className="text-2xl font-bold">Statistiche</h2>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Analizza i tuoi progressi nel tempo per gruppo muscolare.
-        </p>
+        <div className="flex items-center gap-2"><BarChart3 /><h2 className="text-2xl font-bold">Statistiche</h2></div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Analizza i tuoi progressi nel tempo per gruppo muscolare.</p>
       </Card>
 
       {availableGroups.length === 0 ? (
         <Card className="flex flex-col items-center gap-4 p-8 text-center">
           <Info size={48} className="text-primary" />
           <h2 className="text-xl font-bold">Nessun Dato Disponibile</h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            Completa e salva almeno un allenamento per tracciare le tue statistiche qui.
-          </p>
+          <p className="text-gray-500 dark:text-gray-400">Completa e salva almeno un allenamento per tracciare le tue statistiche qui.</p>
         </Card>
       ) : (
         <Card>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
             <h3 className="text-lg font-bold flex items-center gap-2"><TrendingUp /> Volume di Allenamento</h3>
-            <select
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              className="w-full sm:w-auto bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md p-2"
-            >
+            <select value={selectedGroup} onChange={(e) => setSelectedGroup(e.target.value)} className="w-full sm:w-auto bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md p-2">
               {availableGroups.map(name => ( <option key={name} value={name}>{name}</option>))}
             </select>
           </div>
           <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={selectedGroupData} margin={{ top: 5, right: 20, left: 15, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="themeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={activeTheme.hex} stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor={activeTheme.hex} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+                <defs><linearGradient id="themeGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={activeTheme.hex} stopOpacity={0.4}/><stop offset="95%" stopColor={activeTheme.hex} stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                 <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} />
                 <YAxis tick={{ fill: axisColor, fontSize: 12 }} axisLine={{ stroke: axisColor, strokeOpacity: 0.5 }} tickLine={{ stroke: axisColor, strokeOpacity: 0.5 }} label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fill: axisColor, style: { textAnchor: 'middle' } }} />
@@ -256,6 +202,13 @@ export const StatsPage: React.FC = () => {
         onClose={() => setIsReportModalOpen(false)}
         reportData={reportData}
         isLoading={isGeneratingReport}
+      />
+
+      {/* MODIFICA: Aggiunto il rendering del ProModal */}
+      <ProModal
+        isOpen={isProModalOpen}
+        onClose={() => setIsProModalOpen(false)}
+        featureName="Generazione di Report con AI"
       />
     </div>
   );

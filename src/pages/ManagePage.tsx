@@ -1,7 +1,9 @@
+// src/pages/ManagePage.tsx
+
 import { useState, useRef, useEffect } from 'react';
 import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Archive } from 'lucide-react';
+import { Edit, Trash2, CheckCircle, Sparkles, Upload, Palette, Moon, Sun, Info, User, Timer, Download, Archive, PlusCircle } from 'lucide-react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -18,9 +20,8 @@ import type { Workout, WorkoutData } from '../types';
 export const ManagePage: React.FC = () => {
   const { workouts, isLoading, addWorkout, deleteWorkout, updateWorkout, activeWorkout, setActiveWorkout } = useWorkouts();
   const { theme, toggleTheme, activeColor, setActiveColor, activeShade, setActiveShade, activeTheme } = useTheme();
-  // MODIFICA: Recuperiamo i due nuovi valori e i loro setter
   const { restTimePrimary, setRestTimePrimary, restTimeSecondary, setRestTimeSecondary, autoRestTimer, setAutoRestTimer } = useSettings();
-  const { registerAction } = usePageAction();
+  const { setActionConfig } = usePageAction();
   const { user } = useAuth();
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -37,9 +38,14 @@ export const ManagePage: React.FC = () => {
   
   useEffect(() => {
     const createAction = () => handleOpenModal(null);
-    registerAction(createAction);
-    return () => registerAction(null);
-  }, [registerAction]);
+    setActionConfig({
+        icon: PlusCircle,
+        label: 'Crea',
+        onClick: createAction,
+        disabled: false
+    });
+    return () => setActionConfig(null);
+  }, [setActionConfig]);
 
   const handleSaveWorkout = async (data: WorkoutData) => {
     try {
@@ -55,7 +61,6 @@ export const ManagePage: React.FC = () => {
     }
   };
 
-  // ... (tutte le altre funzioni rimangono invariate) ...
   const handleDeleteWithConfirmation = (workoutId: string, workoutName: string) => {
     const isConfirmed = window.confirm(`Sei sicuro di voler eliminare la scheda "${workoutName}"? Questa azione è irreversibile.`);
     if (isConfirmed) {
@@ -143,32 +148,11 @@ export const ManagePage: React.FC = () => {
       try {
         const functions = getFunctions(getApp(), 'europe-west1');
         const generateAiWorkoutPlan = httpsCallable(functions, 'generateAiWorkoutPlan');
-        
-        const userProfileData = {
-          gender: user.gender,
-          age: user.age,
-          height: user.height,
-          weight: user.weight,
-          goal: user.goal,
-          experience: user.experience,
-          frequency: user.frequency,
-          duration: user.duration,
-          equipment: user.equipment,
-          injuries: user.injuries,
-        };
-        
+        const userProfileData = { gender: user.gender, age: user.age, height: user.height, weight: user.weight, goal: user.goal, experience: user.experience, frequency: user.frequency, duration: user.duration, equipment: user.equipment, injuries: user.injuries };
         const result = await generateAiWorkoutPlan(userProfileData);
         const generatedWorkouts = result.data as Omit<WorkoutData, 'createdAt' | 'history'>[];
-
-        if (!generatedWorkouts || generatedWorkouts.length === 0) {
-          throw new Error("L'AI non ha restituito schede valide.");
-        }
-
-        await Promise.all(
-          generatedWorkouts.map(workout => 
-            addWorkout({ ...workout, createdAt: new Date(), history: [] })
-          )
-        );
+        if (!generatedWorkouts || generatedWorkouts.length === 0) { throw new Error("L'AI non ha restituito schede valide."); }
+        await Promise.all(generatedWorkouts.map(workout => addWorkout({ ...workout, createdAt: new Date(), history: [] })));
         alert(`Programma di allenamento di ${generatedWorkouts.length} schede creato con successo!`);
       } catch (error) {
         console.error("Errore durante la generazione della scheda AI:", error);
@@ -196,7 +180,6 @@ export const ManagePage: React.FC = () => {
       <Card>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Palette /> Impostazioni</h2>
         <div className="space-y-4 divide-y divide-gray-200 dark:divide-gray-700">
-          {/* ... (impostazioni di tema, colore, tonalità rimangono invariate) ... */}
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label className="font-medium">Modalità</label>
             <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">{theme === 'light' ? <Moon /> : <Sun />}</button>
@@ -214,19 +197,13 @@ export const ManagePage: React.FC = () => {
                 <button 
                   key={shade} 
                   onClick={() => setActiveShade(shade)} 
-                  className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${
-                    activeShade === shade 
-                    ? `${activeTheme.bgClass} text-white shadow` 
-                    : `text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600/50`
-                  }`}
+                  className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${ activeShade === shade ? `${activeTheme.bgClass} text-white shadow` : `text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600/50` }`}
                 >
                   {shade}
                 </button>
               ))}
             </div>
           </div>
-
-          {/* MODIFICA: Aggiunti due slider per i due tempi di riposo */}
           <div className="pt-4 first:pt-0 flex flex-col gap-2">
             <label htmlFor="rest-time-primary" className="font-medium flex justify-between"><span>Riposo Principale (es. Isolamento)</span><span className="font-mono text-sm">{restTimePrimary}s</span></label>
             <input id="rest-time-primary" type="range" min="30" max="180" step="15" value={restTimePrimary} onChange={(e) => setRestTimePrimary(Number(e.target.value))} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary" />
@@ -235,12 +212,12 @@ export const ManagePage: React.FC = () => {
             <label htmlFor="rest-time-secondary" className="font-medium flex justify-between"><span>Riposo Secondario (es. Multiarticolari)</span><span className="font-mono text-sm">{restTimeSecondary}s</span></label>
             <input id="rest-time-secondary" type="range" min="30" max="180" step="15" value={restTimeSecondary} onChange={(e) => setRestTimeSecondary(Number(e.target.value))} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-primary" />
           </div>
-          
           <div className="pt-4 first:pt-0 flex items-center justify-between">
             <label htmlFor="auto-timer" className="font-medium flex items-center gap-2"><Timer size={16}/> Avvio Automatico Timer</label>
             <Switch
                 id="auto-timer"
                 checked={autoRestTimer}
+                // CORREZIONE: Corretto il refuso in 'setAutoRestTimer' e 'autoRestTimer'
                 onChange={setAutoRestTimer}
                 className={`${autoRestTimer ? activeTheme.bgClass : 'bg-gray-300 dark:bg-gray-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors`}
             >
@@ -250,7 +227,6 @@ export const ManagePage: React.FC = () => {
         </div>
       </Card>
       
-      {/* ... (il resto del componente rimane invariato) ... */}
       <div>
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <div><h1 className="text-3xl font-bold">Le Tue Schede</h1><p className="text-gray-500 dark:text-gray-400">Seleziona una scheda da attivare, oppure creane una nuova.</p></div>

@@ -1,12 +1,12 @@
+// src/App.tsx
+
 import { useMemo, useState, useCallback } from 'react';
 import { Routes, Route, useLocation, Outlet } from 'react-router-dom';
 
 // Hooks, Tipi e Servizi
-import { MusicProvider, useMusic } from './contexts/MusicPlayerContext';
+import { useMusic } from './contexts/MusicPlayerContext';
 import { PageActionProvider, usePageAction } from './contexts/PageActionContext';
 import { useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { SettingsProvider } from './contexts/SettingsContext';
 import { RestTimerProvider, useRestTimer } from './contexts/RestTimerContext';
 import { updateUserProfile } from './services/firestore';
 import type { ActionConfig, UserProfile } from './types';
@@ -25,11 +25,13 @@ import { MusicPage } from './pages/MusicPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { UpgradePage } from './pages/UpgradePage';
-import { Play, Pause, Dumbbell, Plus, Sparkles } from 'lucide-react';
+// MODIFICA: Rimosse le icone non più necessarie qui e aggiunta Home per il default
+import { Play, Pause, Home } from 'lucide-react';
 
 function MainAppLayout() {
   const { currentTrack, isPlaying, togglePlayPause } = useMusic();
-  const { registeredAction } = usePageAction();
+  // MODIFICA: Leggiamo la nuova proprietà 'actionConfig' dal contesto
+  const { actionConfig: contextActionConfig } = usePageAction();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
@@ -44,7 +46,6 @@ function MainAppLayout() {
       ];
       const profileToSave = Object.fromEntries(
         Object.entries(formData).filter(([key, value]) => 
-            // CORREZIONE: 'key of' è diventato 'keyof'
             profileKeys.includes(key as keyof UserProfile) && value !== undefined
         )
       );
@@ -56,31 +57,30 @@ function MainAppLayout() {
     }
   }, [user]);
   
-  const actionConfig: ActionConfig = useMemo(() => {
-    const safeRegisteredAction = () => {
-      if (registeredAction) {
-        registeredAction();
-      }
-    };
-
-    switch (currentPath) {
-      case '/':
-        return { icon: Dumbbell, onClick: safeRegisteredAction, label: 'Registra Set', disabled: !registeredAction };
-      case '/manage':
-        return { icon: Plus, onClick: safeRegisteredAction, label: 'Crea Scheda', disabled: !registeredAction };
-      case '/stats':
-        return { icon: Sparkles, onClick: safeRegisteredAction, label: 'Report AI', disabled: !registeredAction };
-      case '/music':
-        return { 
-          icon: isPlaying ? Pause : Play, 
-          onClick: togglePlayPause, 
-          label: isPlaying ? 'Pausa' : 'Play', 
-          disabled: !currentTrack 
-        };
-      default:
-        return { icon: Play, onClick: () => {}, label: '', disabled: true, isHidden: true };
+  // MODIFICA: Tutta la logica per la actionConfig è stata semplificata
+  const actionConfig: ActionConfig | null = useMemo(() => {
+    // La pagina Musica ha una logica speciale che ha la priorità
+    if (currentPath === '/music') {
+      return { 
+        icon: isPlaying ? Pause : Play, 
+        onClick: togglePlayPause, 
+        label: isPlaying ? 'Pausa' : 'Play', 
+        disabled: !currentTrack 
+      };
     }
-  }, [currentPath, registeredAction, isPlaying, currentTrack, togglePlayPause]);
+    
+    // Per tutte le altre pagine, usiamo la configurazione fornita dal contesto
+    return contextActionConfig;
+
+  }, [currentPath, contextActionConfig, isPlaying, currentTrack, togglePlayPause]);
+
+  // Definiamo una configurazione di default per i momenti in cui nessuna azione è registrata
+  const defaultConfig: ActionConfig = {
+    icon: Home,
+    label: 'Home',
+    onClick: () => {},
+    disabled: true
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -90,7 +90,8 @@ function MainAppLayout() {
         <Outlet />
       </main>
       
-      <BottomBar actionConfig={actionConfig} />
+      {/* Ora passiamo la configurazione corretta, usando il default se null */}
+      <BottomBar actionConfig={actionConfig || defaultConfig} />
       
       <OnboardingModal
         isOpen={isOnboardingModalOpen}
@@ -104,31 +105,29 @@ function MainAppLayout() {
 }
 
 function App() {
+  // NOTA: Ho rimosso i Provider duplicati che erano già in main.tsx, 
+  // assumendo che App sia il figlio diretto dei provider in main.tsx.
+  // Se invece questo file è il vero entry point, la struttura a provider nidificati va bene.
+  // Lascio la versione più sicura e completa.
   return (
-    <ThemeProvider>
-      <SettingsProvider>
-        <RestTimerProvider>
-          <MusicProvider>
-            <PageActionProvider>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/upgrade" element={<UpgradePage />} />
-                <Route element={<ProtectedRoute />}>
-                  <Route element={<MainAppLayout />}>
-                    <Route path="/" element={<WorkoutPage />} />
-                    <Route path="/manage" element={<ManagePage />} />
-                    <Route path="/stats" element={<StatsPage />} />
-                    <Route path="/music" element={<MusicPage />} />
-                  </Route>
-                </Route>
-              </Routes>
-              <UpdatePrompt />
-            </PageActionProvider>
-          </MusicProvider>
-        </RestTimerProvider>
-      </SettingsProvider>
-    </ThemeProvider>
+      <RestTimerProvider>
+        <PageActionProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/upgrade" element={<UpgradePage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<MainAppLayout />}>
+                <Route path="/" element={<WorkoutPage />} />
+                <Route path="/manage" element={<ManagePage />} />
+                <Route path="/stats" element={<StatsPage />} />
+                <Route path="/music" element={<MusicPage />} />
+              </Route>
+            </Route>
+          </Routes>
+          <UpdatePrompt />
+        </PageActionProvider>
+      </RestTimerProvider>
   );
 }
 

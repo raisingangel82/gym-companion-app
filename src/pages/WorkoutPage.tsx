@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+// src/pages/WorkoutPage.tsx
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { useWorkouts } from '../hooks/useWorkouts';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePageAction } from '../contexts/PageActionContext';
@@ -10,115 +12,242 @@ import { ExerciseLogModal } from '../components/ExerciseLogModal';
 import { SessionLogModal, type SessionLogData } from '../components/SessionLogModal';
 import { ExerciseSubstitutionModal } from '../components/ExerciseSubstitutionModal';
 import { PerformanceSummary } from '../components/PerformanceSummary';
-import { Info, ImageOff, Undo2, Save, Repeat } from 'lucide-react';
-import type { Exercise, SetPerformance } from '../types';
+import { SetProgressBar } from '../components/SetProgressBar';
+import { CompletionDots } from '../components/CompletionDots';
+import { Info, Undo2, Repeat, Save, PlusCircle, ArrowLeft, ChevronLeft } from 'lucide-react';
+import type { Exercise, SetPerformance, WorkoutSession } from '../types';
+import {
+  ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line,
+} from 'recharts';
 
+
+// ===================================================================================
+// GRAFICO PERFORMANCE (Componente interno, invariato)
+// ===================================================================================
+interface SessionData {
+  date: string;
+  performance: SetPerformance[];
+}
+
+interface PerformanceChartProps {
+  sessions: SessionData[];
+  targetSets: number;
+  colors: string[];
+}
+
+const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSets, colors }) => {
+  const { theme } = useTheme();
+  const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
+
+  const chartData = useMemo(() => {
+    const xAxisSets = Array.from({ length: targetSets }, (_, i) => `Set ${i + 1}`);
+    const data = xAxisSets.map(setName => ({ name: setName }));
+    sessions.forEach(session => {
+      session.performance.forEach((set, setIndex) => {
+        if (setIndex < targetSets) {
+          const volume = (set.reps || 0) * (set.weight || 0);
+          data[setIndex][session.date] = volume;
+        }
+      });
+    });
+    return data;
+  }, [sessions, targetSets]);
+
+  const sessionKeys = sessions.map(s => s.date);
+
+  if (!sessions.some(s => s.performance.length > 0)) {
+    return <div className="flex items-center justify-center h-full text-gray-400">Registra un set per vedere il grafico</div>;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+        <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 12 }} />
+        <YAxis
+            tick={{ fill: axisColor, fontSize: 12 }}
+            domain={[(dataMin: number) => (dataMin > 0 ? Math.floor(dataMin * 0.9) : 0), 'auto']}
+        />
+        <Tooltip
+          contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB', borderRadius: '0.5rem' }}
+          labelStyle={{ color: axisColor }}
+        />
+        {sessionKeys.map((key, index) => (
+          <Line
+            key={key}
+            type="monotone"
+            dataKey={key}
+            name={key}
+            stroke={colors[index] || '#cccccc'}
+            strokeWidth={key === 'Oggi' ? 3 : 2}
+            connectNulls
+            dot={{ r: 4 }}
+            activeDot={{ r: 8 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+};
+
+
+// ===================================================================================
+// VISTA DI DETTAGLIO (Layout con Pulsante a Tema)
+// ===================================================================================
+interface ExerciseDetailViewProps {
+  exercise: Exercise;
+  activeWorkoutHistory: WorkoutSession[];
+  onUndoLastSet: () => void;
+  onOpenSubstitutionModal: () => void;
+  onGoBack: () => void;
+}
+
+const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activeWorkoutHistory, onUndoLastSet, onOpenSubstitutionModal, onGoBack }) => {
+  const { activeTheme } = useTheme();
+  
+  const sessionsToDisplay = useMemo(() => {
+    const todaySession = { date: 'Oggi', performance: exercise.performance || [] };
+    const recentHistory = activeWorkoutHistory
+      .map(session => ({
+        date: new Date(session.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
+        performance: session.exercises.find(e => e.name === exercise.name)?.performance || [],
+      }))
+      .filter(entry => entry.performance.length > 0)
+      .slice(-2);
+    return [todaySession, ...recentHistory];
+  }, [exercise.performance, activeWorkoutHistory, exercise.name]);
+
+  const sessionColors = useMemo(() => {
+    const predefined = ['#82ca9d', '#ffc658'];
+    return [activeTheme.hex, ...predefined];
+  }, [activeTheme.hex]);
+
+  return (
+    <div className="px-4 pt-4 pb-28 space-y-6">
+      {/* 1. Header */}
+      <div>
+        <div className="relative flex justify-center items-center">
+          <button onClick={onGoBack} className="absolute left-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronLeft size={24} /></button>
+          <h1 className="text-3xl font-bold text-center px-10 truncate">{exercise.name}</h1>
+        </div>
+      </div>
+
+      {/* 2. Riepilogo Obiettivi di Oggi */}
+      <Card className="p-3">
+        <PerformanceSummary exercise={exercise} performance={exercise.performance || []} />
+        <div className="mt-3">
+          <SetProgressBar exercise={exercise} />
+        </div>
+      </Card>
+
+      {/* 3. Storico Orizzontale */}
+      <div>
+        <h2 className="text-xl font-bold mb-3">Storico Confrontato</h2>
+        <div className="flex flex-row gap-4">
+          {sessionsToDisplay.map((session, idx) => (
+            <Card key={idx} className="flex-1 flex flex-col p-3" style={{ borderTop: `4px solid ${sessionColors[idx]}` }}>
+              <h3 className="font-bold text-center mb-2">{session.date}</h3>
+              <div className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
+                {session.performance.length > 0 ? session.performance.map((p, pIdx) => (
+                  <p key={pIdx} className="border-b border-gray-200 dark:border-gray-700 pb-1 last:border-b-0">
+                    <span className="font-semibold">{p.reps} reps</span> @ {p.weight}kg
+                  </p>
+                )) : (<p className="text-center italic mt-2">Nessun dato</p>)}
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Grafico */}
+      <div>
+        <h2 className="text-xl font-bold mb-3">Andamento di Oggi</h2>
+        <div className="h-80">
+          <Card className="h-full w-full p-2">
+              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.sets || 0} colors={sessionColors} />
+          </Card>
+        </div>
+      </div>
+
+      {/* 5. Pulsanti Azione */}
+      <div>
+        <div className="grid grid-cols-2 gap-4">
+          <Button onClick={onUndoLastSet} variant="secondary" disabled={!exercise.performance || exercise.performance.length === 0}><Undo2 size={16} className="mr-2" /> Annulla</Button>
+          {/* MODIFICA: Il pulsante "Sostituisci" ora usa il colore del tema attivo */}
+          <Button onClick={onOpenSubstitutionModal} className={`text-white ${activeTheme.bgClass}`} title="Sostituisci esercizio"><Repeat size={16} className="mr-2" /> Sostituisci</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ===================================================================================
+// PAGINA PRINCIPALE (Logica invariata)
+// ===================================================================================
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
-    // MODIFICA: Recuperiamo entrambi i tempi di riposo
-    const { restTimePrimary, restTimeSecondary, autoRestTimer } = useSettings();
-    const { registerAction } = usePageAction();
-    const { activeTheme } = useTheme();
+    const { restTimePrimary, restTimeSecondary, autoRestimer } = useSettings();
+    const { setActionConfig } = usePageAction();
     const { startTimer } = useRestTimer();
 
-    const [logModalState, setLogModalState] = useState<{
-        isOpen: boolean;
-        ex?: Exercise;
-        setIndex?: number;
-        exerciseIndex?: number;
-    }>({ isOpen: false });
-
-    const [currentExIndex, setCurrentExIndex] = useState(0);
+    const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+    const [logModalState, setLogModalState] = useState<{ isOpen: boolean; ex?: Exercise; setIndex?: number; exerciseIndex?: number; }>({ isOpen: false });
     const [isSessionLogModalOpen, setIsSessionLogModalOpen] = useState(false);
     const [isSubstitutionModalOpen, setIsSubstitutionModalOpen] = useState(false);
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-    const hasPerformanceData = useMemo(() => activeWorkout?.exercises.some(ex => ex.performance && ex.performance.length > 0), [activeWorkout]);
 
     useEffect(() => {
-        const currentVisibleExercise = activeWorkout?.exercises?.[currentExIndex];
-        if (currentVisibleExercise) {
-            const nextSetIndex = currentVisibleExercise.performance?.length || 0;
-            const totalSets = currentVisibleExercise.type === 'strength' ? (currentVisibleExercise.sets || 0) : 1;
-            if (nextSetIndex < totalSets) {
-                const action = () => setLogModalState({
-                    isOpen: true,
-                    ex: currentVisibleExercise,
-                    setIndex: nextSetIndex,
-                    exerciseIndex: currentExIndex
-                });
-                registerAction(action);
-            } else {
-                registerAction(null);
-            }
+        if (!activeWorkout) { setActionConfig(null); return; }
+        if (!selectedExercise) {
+            const action = () => setIsSessionLogModalOpen(true);
+            setActionConfig({ onClick: action, icon: Save, label: 'Termina', disabled: false });
         } else {
-            registerAction(null);
+            const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
+            const currentExercise = activeWorkout.exercises[exerciseIndex];
+            const nextSetIndex = currentExercise.performance?.length || 0;
+            const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1;
+            if (nextSetIndex < totalSets) {
+                const action = () => setLogModalState({ isOpen: true, ex: currentExercise, setIndex: nextSetIndex, exerciseIndex: exerciseIndex });
+                setActionConfig({ onClick: action, icon: PlusCircle, label: 'Esegui', disabled: false });
+            } else {
+                const action = () => setSelectedExercise(null);
+                setActionConfig({ onClick: action, icon: ArrowLeft, label: 'Indietro', disabled: false });
+            }
         }
-        return () => registerAction(null);
-    }, [currentExIndex, activeWorkout, registerAction]);
+        return () => setActionConfig(null);
+    }, [selectedExercise, activeWorkout, setActionConfig]);
 
     const handleSavePerformance = async (performance: SetPerformance) => {
         const { ex: exerciseToUpdate, setIndex: setIndexToUpdate, exerciseIndex: exerciseIndexToUpdate } = logModalState;
-
         if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined || exerciseIndexToUpdate === undefined) return;
-
         const updatedExercises = [...activeWorkout.exercises];
         const newPerformance = [...(exerciseToUpdate.performance || [])];
         newPerformance[setIndexToUpdate] = performance;
-        
-        updatedExercises[exerciseIndexToUpdate] = { ...exerciseToUpdate, performance: newPerformance };
-
+        const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
+        updatedExercises[exerciseIndexToUpdate] = updatedExercise;
+        setSelectedExercise(updatedExercise);
         try {
-            await updateWorkout(activeWorkout.id, {
-                exercises: updatedExercises,
-                _lastUpdated: new Date(),
-            });
-
-            // MODIFICA: Logica per avviare il timer corretto
-            if (autoRestTimer && updatedExercises[exerciseIndexToUpdate].type === 'strength') {
-                const currentExercise = updatedExercises[exerciseIndexToUpdate];
-                // Seleziona il tempo secondario se specificato, altrimenti usa il primario come default
-                const duration = currentExercise.restTimerType === 'secondary' ? restTimeSecondary : restTimePrimary;
+            await updateWorkout(activeWorkout.id, { exercises: updatedExercises, _lastUpdated: new Date() });
+            if (autoRestimer && updatedExercise.type === 'strength') {
+                const duration = updatedExercise.restTimerType === 'secondary' ? restTimeSecondary : restTimePrimary;
                 startTimer(duration);
             }
-
-        } catch (error) {
-            console.error("ERRORE durante la chiamata a updateWorkout:", error);
-            throw error;
-        }
+        } catch (error) { console.error("ERRORE durante la chiamata a updateWorkout:", error); throw error; }
     };
-
-    // ... (tutto il resto del file rimane invariato) ...
+    
     const handleUndoLastSet = () => {
-        if (!activeWorkout) return;
-        const exerciseToUpdate = activeWorkout.exercises[currentExIndex];
+        if (!activeWorkout || !selectedExercise) return;
+        const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
+        const exerciseToUpdate = activeWorkout.exercises[exerciseIndex];
         if (!exerciseToUpdate?.performance?.length) return;
-
         const updatedExercises = [...activeWorkout.exercises];
         const newPerformance = [...exerciseToUpdate.performance];
         newPerformance.pop();
-        updatedExercises[currentExIndex] = { ...exerciseToUpdate, performance: newPerformance };
-
-        updateWorkout(activeWorkout.id, {
-            exercises: updatedExercises,
-            _lastUpdated: new Date(),
-        });
+        const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
+        updatedExercises[exerciseIndex] = updatedExercise;
+        setSelectedExercise(updatedExercise);
+        updateWorkout(activeWorkout.id, { exercises: updatedExercises, _lastUpdated: new Date() });
     };
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const intersectingEntry = entries.find(entry => entry.isIntersecting);
-                if (intersectingEntry) {
-                    const newIndex = parseInt(intersectingEntry.target.getAttribute('data-index') || '0', 10);
-                    setCurrentExIndex(newIndex);
-                }
-            }, { root: scrollContainerRef.current, threshold: 0.5 }
-        );
-        const elements = Array.from(scrollContainerRef.current?.children || []);
-        elements.forEach(el => observer.observe(el));
-        return () => { elements.forEach(el => observer.unobserve(el)); };
-    }, [activeWorkout]);
 
     const handleSaveSession = (subjectiveData: SessionLogData) => {
         if (!activeWorkout) return;
@@ -126,86 +255,48 @@ export const WorkoutPage: React.FC = () => {
         setIsSessionLogModalOpen(false);
     };
 
-    const currentExerciseForSubstitution = activeWorkout?.exercises[currentExIndex] || null;
-
     if (!activeWorkout) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-center p-8">
                 <Info size={48} className="text-primary mb-4" />
                 <h2 className="text-2xl font-bold">Nessun Allenamento Attivo</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm">
-                    Vai nella sezione "Gestisci" per selezionare una delle tue schede e renderla attiva.
-                </p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-sm">Vai nella sezione "Gestisci" per selezionare una delle tue schede e renderla attiva.</p>
             </div>
         );
     }
+    
+    const renderModals = () => (
+        <>
+            {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
+                <ExerciseLogModal isOpen={logModalState.isOpen} onClose={() => setLogModalState({ isOpen: false })} onSave={handleSavePerformance} exercise={logModalState.ex} setIndex={logModalState.setIndex} />
+            )}
+            <SessionLogModal isOpen={isSessionLogModalOpen} onClose={() => setIsSessionLogModalOpen(false)} onSave={handleSaveSession} />
+            <ExerciseSubstitutionModal isOpen={isSubstitutionModalOpen} onClose={() => setIsSubstitutionModalOpen(false)} exerciseToSubstitute={selectedExercise} />
+        </>
+    );
 
     return (
-        <>
-            <div ref={scrollContainerRef} className="h-full overflow-y-auto snap-y snap-mandatory">
-                {activeWorkout.exercises.map((exercise, exIndex) => {
-                    const currentExercisePerformance = exercise.performance || [];
-                    const cardBgClass = 'bg-black';
-
-                    return (
-                        <div key={exIndex} data-index={exIndex} className="h-full w-full snap-start flex-shrink-0 p-4 grid grid-rows-[1fr_auto_auto]">
-                            <div className="row-start-1 row-end-2 overflow-hidden">
-                                <Card className={`h-full w-full flex flex-col overflow-hidden relative text-white ${cardBgClass}`}>
-                                    {exercise.imageUrl ? (
-                                        <img src={exercise.imageUrl} alt={exercise.name} className="absolute inset-0 w-full h-full object-fit dark:invert" referrerPolicy="no-referrer" />
-                                    ) : (
-                                        <div className="absolute inset-0 w-full h-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                            <ImageOff size={48} className="text-gray-400 dark:text-gray-600" />
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10"></div>
-                                    <div className="relative z-10 flex flex-col h-full p-4 justify-start">
-                                        <h2 className="text-2xl font-bold text-shadow-lg">{exercise.name}</h2>
-                                    </div>
-                                </Card>
-                            </div>
-
-                            <div className="row-start-2 row-end-3 py-3">
-                                <PerformanceSummary exercise={exercise} performance={currentExercisePerformance} />
-                            </div>
-
-                            <div className="row-start-3 row-end-4">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <Button onClick={handleUndoLastSet} variant="secondary" disabled={!currentExercisePerformance.length || currentExIndex !== exIndex}>
-                                        <Undo2 size={16} className="mr-2" /> Annulla
-                                    </Button>
-                                    <Button onClick={() => setIsSubstitutionModalOpen(true)} variant="outline" title="Sostituisci esercizio con AI">
-                                        <Repeat size={16} className="mr-2" /> Sostituisci
-                                    </Button>
-                                    <Button onClick={() => setIsSessionLogModalOpen(true)} className={`text-white hover:opacity-90 ${activeTheme.bgClass}`} disabled={!hasPerformanceData}>
-                                        <Save size={16} className="mr-2" /> Termina
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {logModalState.isOpen && logModalState.ex && logModalState.setIndex !== undefined && (
-                <ExerciseLogModal
-                    isOpen={logModalState.isOpen}
-                    onClose={() => setLogModalState({ isOpen: false })}
-                    onSave={handleSavePerformance}
-                    exercise={logModalState.ex}
-                    setIndex={logModalState.setIndex}
-                />
+        <div className="h-full w-full">
+            {selectedExercise ? (
+                <ExerciseDetailView exercise={selectedExercise} activeWorkoutHistory={activeWorkout.history || []} onUndoLastSet={handleUndoLastSet} onOpenSubstitutionModal={() => setIsSubstitutionModalOpen(true)} onGoBack={() => setSelectedExercise(null)} />
+            ) : (
+                <div className="h-full overflow-y-auto p-4 space-y-3">
+                  <h1 className="text-2xl font-bold px-2">{activeWorkout.name}</h1>
+                  {activeWorkout.exercises.map((exercise) => (
+                      <Card key={exercise.id} onClick={() => setSelectedExercise(exercise)} className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                          <div className="flex justify-between items-start">
+                              <h3 className="font-bold text-lg">{exercise.name}</h3>
+                              <CompletionDots exercise={exercise} />
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {exercise.type === 'strength' && `${exercise.sets} serie × ${exercise.reps} reps @ ${exercise.weight || '-'}kg`}
+                            {exercise.type === 'cardio' && `${exercise.duration} min`}
+                          </p>
+                      </Card>
+                  ))}
+                </div>
             )}
-            <SessionLogModal
-                isOpen={isSessionLogModalOpen}
-                onClose={() => setIsSessionLogModalOpen(false)}
-                onSave={handleSaveSession}
-            />
-            <ExerciseSubstitutionModal
-                isOpen={isSubstitutionModalOpen}
-                onClose={() => setIsSubstitutionModalOpen(false)}
-                exerciseToSubstitute={currentExerciseForSubstitution}
-            />
-        </>
+            {renderModals()}
+        </div>
     );
 };
