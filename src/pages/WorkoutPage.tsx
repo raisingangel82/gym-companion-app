@@ -22,11 +22,17 @@ import {
 
 
 // ===================================================================================
-// GRAFICO PERFORMANCE (Componente interno, invariato)
+// GRAFICO PERFORMANCE
 // ===================================================================================
 interface SessionData {
   date: string;
   performance: SetPerformance[];
+}
+
+// CORREZIONE TS7053: Aggiunto un tipo per i dati del grafico con una index signature
+interface ChartDataPoint {
+  name: string;
+  [key: string]: string | number | null;
 }
 
 interface PerformanceChartProps {
@@ -41,7 +47,8 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
 
   const chartData = useMemo(() => {
     const xAxisSets = Array.from({ length: targetSets }, (_, i) => `Set ${i + 1}`);
-    const data = xAxisSets.map(setName => ({ name: setName }));
+    // Usa il nuovo tipo ChartDataPoint
+    const data: ChartDataPoint[] = xAxisSets.map(setName => ({ name: setName }));
     sessions.forEach(session => {
       session.performance.forEach((set, setIndex) => {
         if (setIndex < targetSets) {
@@ -92,7 +99,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
 
 
 // ===================================================================================
-// VISTA DI DETTAGLIO (Layout con Pulsante a Tema)
+// VISTA DI DETTAGLIO
 // ===================================================================================
 interface ExerciseDetailViewProps {
   exercise: Exercise;
@@ -124,23 +131,18 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
 
   return (
     <div className="px-4 pt-4 pb-28 space-y-6">
-      {/* 1. Header */}
       <div>
         <div className="relative flex justify-center items-center">
           <button onClick={onGoBack} className="absolute left-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronLeft size={24} /></button>
           <h1 className="text-3xl font-bold text-center px-10 truncate">{exercise.name}</h1>
         </div>
       </div>
-
-      {/* 2. Riepilogo Obiettivi di Oggi */}
       <Card className="p-3">
         <PerformanceSummary exercise={exercise} performance={exercise.performance || []} />
         <div className="mt-3">
           <SetProgressBar exercise={exercise} />
         </div>
       </Card>
-
-      {/* 3. Storico Orizzontale */}
       <div>
         <h2 className="text-xl font-bold mb-3">Storico Confrontato</h2>
         <div className="flex flex-row gap-4">
@@ -158,8 +160,6 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
           ))}
         </div>
       </div>
-
-      {/* 4. Grafico */}
       <div>
         <h2 className="text-xl font-bold mb-3">Andamento di Oggi</h2>
         <div className="h-80">
@@ -168,12 +168,9 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
           </Card>
         </div>
       </div>
-
-      {/* 5. Pulsanti Azione */}
       <div>
         <div className="grid grid-cols-2 gap-4">
           <Button onClick={onUndoLastSet} variant="secondary" disabled={!exercise.performance || exercise.performance.length === 0}><Undo2 size={16} className="mr-2" /> Annulla</Button>
-          {/* MODIFICA: Il pulsante "Sostituisci" ora usa il colore del tema attivo */}
           <Button onClick={onOpenSubstitutionModal} className={`text-white ${activeTheme.bgClass}`} title="Sostituisci esercizio"><Repeat size={16} className="mr-2" /> Sostituisci</Button>
         </div>
       </div>
@@ -183,11 +180,12 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
 
 
 // ===================================================================================
-// PAGINA PRINCIPALE (Logica invariata)
+// PAGINA PRINCIPALE
 // ===================================================================================
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
-    const { restTimePrimary, restTimeSecondary, autoRestimer } = useSettings();
+    // CORREZIONE TS2339: Corretto il typo 'autoRestimer' in 'autoRestTimer'
+    const { restTimePrimary, restTimeSecondary, autoRestTimer } = useSettings();
     const { setActionConfig } = usePageAction();
     const { startTimer } = useRestTimer();
 
@@ -202,7 +200,8 @@ export const WorkoutPage: React.FC = () => {
             const action = () => setIsSessionLogModalOpen(true);
             setActionConfig({ onClick: action, icon: Save, label: 'Termina', disabled: false });
         } else {
-            const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
+            // CORREZIONE TS2339: Sostituito '.id' con '.name' per la ricerca
+            const exerciseIndex = activeWorkout.exercises.findIndex(e => e.name === selectedExercise.name);
             const currentExercise = activeWorkout.exercises[exerciseIndex];
             const nextSetIndex = currentExercise.performance?.length || 0;
             const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1;
@@ -228,7 +227,8 @@ export const WorkoutPage: React.FC = () => {
         setSelectedExercise(updatedExercise);
         try {
             await updateWorkout(activeWorkout.id, { exercises: updatedExercises, _lastUpdated: new Date() });
-            if (autoRestimer && updatedExercise.type === 'strength') {
+            // CORREZIONE TS2339: Corretto il typo 'autoRestimer' in 'autoRestTimer'
+            if (autoRestTimer && updatedExercise.type === 'strength') {
                 const duration = updatedExercise.restTimerType === 'secondary' ? restTimeSecondary : restTimePrimary;
                 startTimer(duration);
             }
@@ -237,7 +237,8 @@ export const WorkoutPage: React.FC = () => {
     
     const handleUndoLastSet = () => {
         if (!activeWorkout || !selectedExercise) return;
-        const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
+        // CORREZIONE TS2339: Sostituito '.id' con '.name' per la ricerca
+        const exerciseIndex = activeWorkout.exercises.findIndex(e => e.name === selectedExercise.name);
         const exerciseToUpdate = activeWorkout.exercises[exerciseIndex];
         if (!exerciseToUpdate?.performance?.length) return;
         const updatedExercises = [...activeWorkout.exercises];
@@ -283,7 +284,8 @@ export const WorkoutPage: React.FC = () => {
                 <div className="h-full overflow-y-auto p-4 space-y-3">
                   <h1 className="text-2xl font-bold px-2">{activeWorkout.name}</h1>
                   {activeWorkout.exercises.map((exercise) => (
-                      <Card key={exercise.id} onClick={() => setSelectedExercise(exercise)} className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      // CORREZIONE TS2339: Sostituito 'key={exercise.id}' con 'key={exercise.name}'
+                      <Card key={exercise.name} onClick={() => setSelectedExercise(exercise)} className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                           <div className="flex justify-between items-start">
                               <h3 className="font-bold text-lg">{exercise.name}</h3>
                               <CompletionDots exercise={exercise} />
