@@ -15,7 +15,8 @@ import { PerformanceSummary } from '../components/PerformanceSummary';
 import { SetProgressBar } from '../components/SetProgressBar';
 import { CompletionDots } from '../components/CompletionDots';
 import { Info, Undo2, Repeat, Save, PlusCircle, ArrowLeft, ChevronLeft } from 'lucide-react';
-import type { Exercise, SetPerformance, WorkoutSession } from '../types';
+// ASSUMIAMO CHE IL TUO FILE types.ts ABBIA ORA Exercise CON ID OBBLIGATORIO
+import type { Exercise, SetPerformance, WorkoutSession } from '../types'; 
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line,
 } from 'recharts';
@@ -28,6 +29,12 @@ interface SessionData {
   date: string;
   originalDate: string; // Data ISO per l'ordinamento
   performance: SetPerformance[];
+}
+
+// CORREZIONE TS7053: Re-aggiunta la index signature
+interface ChartDataPoint {
+  name: string;
+  [key: string]: string | number | null; // Consente chiavi dinamiche come le date
 }
 
 interface PerformanceChartProps {
@@ -95,7 +102,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
   // --- GRAFICO PER ESERCIZI DI FORZA (Default) ---
   const strengthChartData = useMemo(() => {
     const xAxisSets = Array.from({ length: targetSets }, (_, i) => `Set ${i + 1}`);
-    const data = xAxisSets.map(setName => ({ name: setName }));
+    const data: ChartDataPoint[] = xAxisSets.map(setName => ({ name: setName })); // Usa ChartDataPoint
     sessions.forEach(session => {
       session.performance.forEach((set, setIndex) => {
         if (setIndex < targetSets) {
@@ -218,7 +225,8 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
         <h2 className="text-xl font-bold mb-3">Andamento Performance</h2>
         <div className="h-80">
           <Card className="h-full w-full p-2">
-              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.sets || 1} colors={sessionColors} exerciseType={exercise.type} />
+              {/* Target sets per cardio può essere 1 perché si fa un solo "set" per sessione */}
+              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.type === 'cardio' ? 1 : (exercise.sets || 1)} colors={sessionColors} exerciseType={exercise.type} />
           </Card>
         </div>
       </div>
@@ -255,10 +263,17 @@ export const WorkoutPage: React.FC = () => {
         } else {
             const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
             const currentExercise = activeWorkout.exercises[exerciseIndex];
+            // Per cardio, il "nextSetIndex" è sempre 0 se non ancora registrato, o 1 se già registrato
+            // Per forza, è la lunghezza dell'array performance
             const nextSetIndex = currentExercise.performance?.length || 0;
-            const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1;
-            if (nextSetIndex < totalSets) {
-                const action = () => setLogModalState({ isOpen: true, ex: currentExercise, setIndex: nextSetIndex, exerciseIndex: exerciseIndex });
+            // Per cardio, consideriamo "1 set" per sessione, per forza è il numero di set definiti
+            const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1; 
+
+            if (nextSetIndex < totalSets || currentExercise.type === 'cardio' && nextSetIndex === 0) {
+                 // Per cardio, se nextSetIndex è 0, significa che non è ancora stato registrato.
+                 // Il setIndex per la modal sarà sempre 0 per il cardio.
+                const setIndexForCardio = currentExercise.type === 'cardio' ? 0 : nextSetIndex;
+                const action = () => setLogModalState({ isOpen: true, ex: currentExercise, setIndex: setIndexForCardio, exerciseIndex: exerciseIndex });
                 setActionConfig({ onClick: action, icon: PlusCircle, label: 'Esegui', disabled: false });
             } else {
                 const action = () => setSelectedExercise(null);
@@ -266,14 +281,21 @@ export const WorkoutPage: React.FC = () => {
             }
         }
         return () => setActionConfig(null);
-    }, [selectedExercise, activeWorkout, setActionConfig]);
+    }, [selectedExercise, activeWorkout, setActionConfig, autoRestTimer, restTimePrimary, restTimeSecondary, startTimer]); // Aggiunti a dependencies per completezza
 
     const handleSavePerformance = async (performance: SetPerformance) => {
         const { ex: exerciseToUpdate, setIndex: setIndexToUpdate, exerciseIndex: exerciseIndexToUpdate } = logModalState;
         if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined || exerciseIndexToUpdate === undefined) return;
         const updatedExercises = [...activeWorkout.exercises];
-        const newPerformance = [...(exerciseToUpdate.performance || [])];
-        newPerformance[setIndexToUpdate] = performance;
+        let newPerformance = [...(exerciseToUpdate.performance || [])];
+        
+        // Per cardio, sovrascriviamo sempre il "primo" (e unico) set per quella sessione
+        if (exerciseToUpdate.type === 'cardio') {
+            newPerformance = [performance]; // Rimuovi i set precedenti per questa sessione e aggiungi solo il nuovo
+        } else {
+            newPerformance[setIndexToUpdate] = performance;
+        }
+
         const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
         updatedExercises[exerciseIndexToUpdate] = updatedExercise;
         setSelectedExercise(updatedExercise);
@@ -293,7 +315,7 @@ export const WorkoutPage: React.FC = () => {
         if (!exerciseToUpdate?.performance?.length) return;
         const updatedExercises = [...activeWorkout.exercises];
         const newPerformance = [...exerciseToUpdate.performance];
-        newPerformance.pop();
+        newPerformance.pop(); // Rimuovi l'ultimo set
         const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
         updatedExercises[exerciseIndex] = updatedExercise;
         setSelectedExercise(updatedExercise);

@@ -24,11 +24,15 @@ export interface SetPerformance {
 
 /**
  * Definisce un esercizio, che ora può essere di tipo 'strength' o 'cardio'.
+ * AGGIORNAMENTO: Aggiunto 'id' come proprietà obbligatoria per l'identificazione univoca.
+ * AGGIORNAMENTO: 'imageUrl' ora accetta 'null'.
+ * AGGIORNAMENTO: 'performance' è ora obbligatoria e di tipo 'SetPerformance[]'.
  */
 export interface Exercise {
+  id: string; // <-- MODIFICA: ID univoco per l'esercizio
   name: string;
   type: 'strength' | 'cardio';
-  imageUrl?: string;
+  imageUrl: string | null; // <-- MODIFICA: string o null, non undefined
 
   // Proprietà per la forza
   sets?: number;
@@ -43,7 +47,7 @@ export interface Exercise {
   speed?: number;
   level?: number;
 
-  performance?: SetPerformance[];
+  performance: SetPerformance[]; // <-- MODIFICA: Sempre un array, anche vuoto
 }
 
 /** Dati raccolti alla fine di una sessione di allenamento. */
@@ -60,12 +64,14 @@ export interface WorkoutSession extends SessionLogData {
   exercises: Exercise[];
 }
 
-/** Definisce la struttura base di una scheda di allenamento. */
+/** Definisce la struttura base di una scheda di allenamento.
+ * AGGIORNAMENTO: 'history' è ora obbligatoria e di tipo 'WorkoutSession[]'.
+*/
 export interface WorkoutData {
   name: string;
   exercises: Exercise[];
   createdAt: Date;
-  history: WorkoutSession[];
+  history: WorkoutSession[]; // <-- MODIFICA: Sempre un array, anche vuoto
   _lastUpdated?: Date;
 }
 

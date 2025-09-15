@@ -6,7 +6,8 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Trash2, PlusCircle, ArrowUp, ArrowDown, Timer } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-import type { Workout, WorkoutData, Exercise } from '../types';
+// ASSUMIAMO CHE IL TUO FILE types.ts ABBIA ORA Exercise CON ID OBBLIGATORIO
+import type { Workout, WorkoutData, Exercise } from '../types'; 
 
 interface EditorProps {
   isOpen: boolean;
@@ -15,21 +16,38 @@ interface EditorProps {
   workout: Workout | null;
 }
 
-// CORREZIONE: Aggiunto 'id' opzionale per la gestione interna
-type EditableExercise = Partial<Exercise> & { id?: string };
-
 export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onSave, workout }) => {
   const { activeTheme } = useTheme();
   const [name, setName] = useState('');
-  const [exercises, setExercises] = useState<EditableExercise[]>([]);
+  // Ora EditableExercise è direttamente Exercise, dato che ha ID
+  const [exercises, setExercises] = useState<Exercise[]>([]); 
   
   useEffect(() => {
     if (isOpen) {
       setName(workout?.name || '');
-      // CORREZIONE: Assegna un ID univoco a ogni esercizio se non presente
-      const initialExercises: EditableExercise[] = workout?.exercises.length 
-        ? workout.exercises.map(ex => ({ ...ex, id: ex.id || crypto.randomUUID(), restTimerType: ex.restTimerType || 'primary' }))
-        : [{ id: crypto.randomUUID(), name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }];
+      // Assegna un ID univoco a ogni esercizio se non presente (dovrebbe già averlo se caricato)
+      // E assicurati che i campi numerici siano 0 se nulli/undefined
+      const initialExercises: Exercise[] = workout?.exercises.length 
+        ? workout.exercises.map(ex => ({ 
+            ...ex, 
+            id: ex.id || crypto.randomUUID(), 
+            sets: ex.sets || 0,
+            weight: ex.weight || 0,
+            duration: ex.duration || 0,
+            speed: ex.speed || 0,
+            level: ex.level || 0,
+            restTimerType: ex.restTimerType || 'primary' 
+          }))
+        : [{ 
+            id: crypto.randomUUID(), 
+            name: '', 
+            type: 'strength', 
+            sets: 3, 
+            reps: '8-12', 
+            weight: 0, 
+            restTimerType: 'primary',
+            performance: [] // Assicurati che performance sia sempre presente
+          }];
       setExercises(initialExercises);
     }
   }, [isOpen, workout]);
@@ -47,11 +65,11 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     if (field === 'type') {
       if (value === 'strength') {
         exercise.duration = undefined; exercise.speed = undefined; exercise.level = undefined;
-        exercise.sets = 3; exercise.reps = '8-12';
+        exercise.sets = 3; exercise.reps = '8-12'; exercise.weight = 0;
         exercise.restTimerType = exercise.restTimerType || 'primary';
-      } else {
+      } else { // cardio
         exercise.sets = undefined; exercise.reps = undefined; exercise.weight = undefined;
-        exercise.duration = 20;
+        exercise.duration = 20; exercise.speed = 0; exercise.level = 0;
         exercise.restTimerType = undefined;
       }
     }
@@ -61,8 +79,16 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
   };
 
   const addExercise = () => {
-    // CORREZIONE: Aggiunge un ID univoco al nuovo esercizio
-    setExercises([...exercises, { id: crypto.randomUUID(), name: '', type: 'strength', sets: 3, reps: '8-12', weight: 0, restTimerType: 'primary' }]);
+    setExercises([...exercises, { 
+      id: crypto.randomUUID(), 
+      name: '', 
+      type: 'strength', 
+      sets: 3, 
+      reps: '8-12', 
+      weight: 0, 
+      restTimerType: 'primary',
+      performance: [] // Nuovi esercizi hanno performance vuota
+    }]);
   };
 
   const removeExercise = (index: number) => {
@@ -82,14 +108,13 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     const validExercises = exercises.filter(ex => ex.name && ex.name.trim() !== '');
     if (validExercises.length === 0) return alert("La scheda deve contenere almeno un esercizio valido.");
 
-    // CORREZIONE: Logica di salvataggio "pulita" che costruisce l'oggetto finale
-    // senza campi 'undefined', risolvendo l'errore di Firestore.
     const finalizedExercises = validExercises.map(ex => {
-      const baseExercise = {
-        id: ex.id || crypto.randomUUID(),
+      // Crea un esercizio pulito in base al suo tipo
+      const baseExercise: Exercise = {
+        id: ex.id,
         name: ex.name!,
-        type: ex.type || 'strength',
-        imageUrl: ex.imageUrl || null, // Usa null invece di undefined
+        type: ex.type,
+        imageUrl: ex.imageUrl || null,
         performance: ex.performance || [],
       };
 
@@ -99,19 +124,28 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
           duration: ex.duration || 0,
           speed: ex.speed || 0,
           level: ex.level || 0,
+          // Rimuovi campi strength-specifici se presenti
+          sets: undefined, reps: undefined, weight: undefined, restTimerType: undefined,
         };
-      } else {
+      } else { // strength
         return {
           ...baseExercise,
           sets: ex.sets || 0,
           reps: ex.reps || '0',
           weight: ex.weight || 0,
           restTimerType: ex.restTimerType || 'primary',
+          // Rimuovi campi cardio-specifici se presenti
+          duration: undefined, speed: undefined, level: undefined,
         };
       }
-    }) as Exercise[];
+    });
 
-    const workoutDataToSave: WorkoutData = { name: name, exercises: finalizedExercises, createdAt: workout?.createdAt || new Date(), history: workout?.history || [], };
+    const workoutDataToSave: WorkoutData = { 
+      name: name, 
+      exercises: finalizedExercises, 
+      createdAt: workout?.createdAt || new Date(), 
+      history: workout?.history || [], 
+    };
     onSave(workoutDataToSave);
   };
 
@@ -139,7 +173,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
 
                   <div className="space-y-4">
                     {exercises.map((ex, index) => (
-                      <div key={ex.id || index} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-3">
+                      <div key={ex.id} className="p-3 rounded-lg bg-gray-100 dark:bg-gray-700/50 space-y-3">
                         <div className="flex items-center gap-2">
                            <Input value={ex.name ?? ''} onChange={(e) => handleExerciseChange(index, 'name', e.target.value)} placeholder={`Esercizio ${index + 1}`} className="flex-grow"/>
                            <div className="flex-shrink-0 flex items-center">
