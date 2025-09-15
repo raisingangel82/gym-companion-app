@@ -22,38 +22,85 @@ import {
 
 
 // ===================================================================================
-// GRAFICO PERFORMANCE
+// GRAFICO PERFORMANCE (Logica sdoppiata per Forza e Cardio)
 // ===================================================================================
 interface SessionData {
   date: string;
+  originalDate: string; // Data ISO per l'ordinamento
   performance: SetPerformance[];
-}
-
-// CORREZIONE TS7053: Aggiunto un tipo per i dati del grafico con una index signature
-interface ChartDataPoint {
-  name: string;
-  [key: string]: string | number | null;
 }
 
 interface PerformanceChartProps {
   sessions: SessionData[];
   targetSets: number;
   colors: string[];
+  exerciseType: Exercise['type'];
 }
 
-const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSets, colors }) => {
-  const { theme } = useTheme();
+const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSets, exerciseType, colors }) => {
+  const { theme, activeTheme } = useTheme();
   const axisColor = theme === 'dark' ? '#9CA3AF' : '#4B5563';
 
-  const chartData = useMemo(() => {
+  if (!sessions.some(s => s.performance.length > 0)) {
+    return <div className="flex items-center justify-center h-full text-gray-400">Registra un set per vedere il grafico</div>;
+  }
+
+  // --- GRAFICO PER ESERCIZI CARDIO ---
+  if (exerciseType === 'cardio') {
+    const cardioChartData = useMemo(() => {
+      return sessions
+        .map(session => {
+          const perf = session.performance[0]; // Per il cardio, consideriamo solo il primo (e unico) set
+          if (!perf) return null;
+          const performanceValue = (perf.duration || 0) * (perf.speed || 0) * (perf.level || 0);
+          return {
+            date: session.date,
+            performance: performanceValue > 0 ? performanceValue : null,
+            originalDate: new Date(session.originalDate), // Oggetto Date per l'ordinamento
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .sort((a, b) => a.originalDate.getTime() - b.originalDate.getTime());
+    }, [sessions]);
+
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={cardioChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+          <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 12 }} />
+          <YAxis
+              tick={{ fill: axisColor, fontSize: 12 }}
+              domain={['dataMin', 'auto']}
+              tickFormatter={(value) => new Intl.NumberFormat('it-IT').format(value)}
+          />
+          <Tooltip
+            contentStyle={{ backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF', borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB', borderRadius: '0.5rem' }}
+            labelStyle={{ color: axisColor }}
+          />
+          <Line
+            type="monotone"
+            dataKey="performance"
+            name="Performance"
+            stroke={activeTheme.hex}
+            strokeWidth={3}
+            connectNulls
+            dot={{ r: 4 }}
+            activeDot={{ r: 8 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  // --- GRAFICO PER ESERCIZI DI FORZA (Default) ---
+  const strengthChartData = useMemo(() => {
     const xAxisSets = Array.from({ length: targetSets }, (_, i) => `Set ${i + 1}`);
-    // Usa il nuovo tipo ChartDataPoint
-    const data: ChartDataPoint[] = xAxisSets.map(setName => ({ name: setName }));
+    const data = xAxisSets.map(setName => ({ name: setName }));
     sessions.forEach(session => {
       session.performance.forEach((set, setIndex) => {
         if (setIndex < targetSets) {
           const volume = (set.reps || 0) * (set.weight || 0);
-          data[setIndex][session.date] = volume;
+          data[setIndex][session.date] = volume > 0 ? volume : null;
         }
       });
     });
@@ -61,14 +108,11 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
   }, [sessions, targetSets]);
 
   const sessionKeys = sessions.map(s => s.date);
-
-  if (!sessions.some(s => s.performance.length > 0)) {
-    return <div className="flex items-center justify-center h-full text-gray-400">Registra un set per vedere il grafico</div>;
-  }
+  const lineName = 'Volume (kg)';
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+      <LineChart data={strengthChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
         <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 12 }} />
         <YAxis
@@ -84,7 +128,7 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
             key={key}
             type="monotone"
             dataKey={key}
-            name={key}
+            name={`${key} (${lineName})`}
             stroke={colors[index] || '#cccccc'}
             strokeWidth={key === 'Oggi' ? 3 : 2}
             connectNulls
@@ -113,16 +157,18 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
   const { activeTheme } = useTheme();
   
   const sessionsToDisplay = useMemo(() => {
-    const todaySession = { date: 'Oggi', performance: exercise.performance || [] };
+    // Aggiungo la data originale per permettere l'ordinamento cronologico nel grafico cardio
+    const todaySession = { date: 'Oggi', originalDate: new Date().toISOString(), performance: exercise.performance || [] };
     const recentHistory = activeWorkoutHistory
       .map(session => ({
         date: new Date(session.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
-        performance: session.exercises.find(e => e.name === exercise.name)?.performance || [],
+        originalDate: session.date,
+        performance: session.exercises.find(e => e.id === exercise.id)?.performance || [],
       }))
       .filter(entry => entry.performance.length > 0)
       .slice(-2);
     return [todaySession, ...recentHistory];
-  }, [exercise.performance, activeWorkoutHistory, exercise.name]);
+  }, [exercise, activeWorkoutHistory]);
 
   const sessionColors = useMemo(() => {
     const predefined = ['#82ca9d', '#ffc658'];
@@ -151,9 +197,17 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
               <h3 className="font-bold text-center mb-2">{session.date}</h3>
               <div className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
                 {session.performance.length > 0 ? session.performance.map((p, pIdx) => (
-                  <p key={pIdx} className="border-b border-gray-200 dark:border-gray-700 pb-1 last:border-b-0">
-                    <span className="font-semibold">{p.reps} reps</span> @ {p.weight}kg
-                  </p>
+                  <div key={pIdx} className="border-b border-gray-200 dark:border-gray-700 pb-1 last:border-b-0">
+                    {exercise.type === 'cardio' ? (
+                      <p>
+                        {p.duration}' <span className="text-xs opacity-70"> D</span> / {p.speed} <span className="text-xs opacity-70">V</span> / {p.level} <span className="text-xs opacity-70">L</span>
+                      </p>
+                    ) : (
+                      <p>
+                        <span className="font-semibold">{p.reps} reps</span> @ {p.weight}kg
+                      </p>
+                    )}
+                  </div>
                 )) : (<p className="text-center italic mt-2">Nessun dato</p>)}
               </div>
             </Card>
@@ -161,10 +215,10 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
         </div>
       </div>
       <div>
-        <h2 className="text-xl font-bold mb-3">Andamento di Oggi</h2>
+        <h2 className="text-xl font-bold mb-3">Andamento Performance</h2>
         <div className="h-80">
           <Card className="h-full w-full p-2">
-              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.sets || 0} colors={sessionColors} />
+              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.sets || 1} colors={sessionColors} exerciseType={exercise.type} />
           </Card>
         </div>
       </div>
@@ -184,7 +238,6 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
 // ===================================================================================
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
-    // CORREZIONE TS2339: Corretto il typo 'autoRestimer' in 'autoRestTimer'
     const { restTimePrimary, restTimeSecondary, autoRestTimer } = useSettings();
     const { setActionConfig } = usePageAction();
     const { startTimer } = useRestTimer();
@@ -200,8 +253,7 @@ export const WorkoutPage: React.FC = () => {
             const action = () => setIsSessionLogModalOpen(true);
             setActionConfig({ onClick: action, icon: Save, label: 'Termina', disabled: false });
         } else {
-            // CORREZIONE TS2339: Sostituito '.id' con '.name' per la ricerca
-            const exerciseIndex = activeWorkout.exercises.findIndex(e => e.name === selectedExercise.name);
+            const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
             const currentExercise = activeWorkout.exercises[exerciseIndex];
             const nextSetIndex = currentExercise.performance?.length || 0;
             const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1;
@@ -227,7 +279,6 @@ export const WorkoutPage: React.FC = () => {
         setSelectedExercise(updatedExercise);
         try {
             await updateWorkout(activeWorkout.id, { exercises: updatedExercises, _lastUpdated: new Date() });
-            // CORREZIONE TS2339: Corretto il typo 'autoRestimer' in 'autoRestTimer'
             if (autoRestTimer && updatedExercise.type === 'strength') {
                 const duration = updatedExercise.restTimerType === 'secondary' ? restTimeSecondary : restTimePrimary;
                 startTimer(duration);
@@ -237,8 +288,7 @@ export const WorkoutPage: React.FC = () => {
     
     const handleUndoLastSet = () => {
         if (!activeWorkout || !selectedExercise) return;
-        // CORREZIONE TS2339: Sostituito '.id' con '.name' per la ricerca
-        const exerciseIndex = activeWorkout.exercises.findIndex(e => e.name === selectedExercise.name);
+        const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
         const exerciseToUpdate = activeWorkout.exercises[exerciseIndex];
         if (!exerciseToUpdate?.performance?.length) return;
         const updatedExercises = [...activeWorkout.exercises];
@@ -284,8 +334,7 @@ export const WorkoutPage: React.FC = () => {
                 <div className="h-full overflow-y-auto p-4 space-y-3">
                   <h1 className="text-2xl font-bold px-2">{activeWorkout.name}</h1>
                   {activeWorkout.exercises.map((exercise) => (
-                      // CORREZIONE TS2339: Sostituito 'key={exercise.id}' con 'key={exercise.name}'
-                      <Card key={exercise.name} onClick={() => setSelectedExercise(exercise)} className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <Card key={exercise.id} onClick={() => setSelectedExercise(exercise)} className="p-4 flex flex-col gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                           <div className="flex justify-between items-start">
                               <h3 className="font-bold text-lg">{exercise.name}</h3>
                               <CompletionDots exercise={exercise} />
