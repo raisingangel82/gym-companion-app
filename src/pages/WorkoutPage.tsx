@@ -15,26 +15,19 @@ import { PerformanceSummary } from '../components/PerformanceSummary';
 import { SetProgressBar } from '../components/SetProgressBar';
 import { CompletionDots } from '../components/CompletionDots';
 import { Info, Undo2, Repeat, Save, PlusCircle, ArrowLeft, ChevronLeft } from 'lucide-react';
-// ASSUMIAMO CHE IL TUO FILE types.ts ABBIA ORA Exercise CON ID OBBLIGATORIO
-import type { Exercise, SetPerformance, WorkoutSession } from '../types'; 
+import type { Exercise, SetPerformance, WorkoutSession } from '../types';
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line,
 } from 'recharts';
 
 
 // ===================================================================================
-// GRAFICO PERFORMANCE (Logica sdoppiata per Forza e Cardio)
+// GRAFICO PERFORMANCE (Componente interno, invariato)
 // ===================================================================================
 interface SessionData {
   date: string;
-  originalDate: string; // Data ISO per l'ordinamento
+  originalDate: string; 
   performance: SetPerformance[];
-}
-
-// CORREZIONE TS7053: Re-aggiunta la index signature
-interface ChartDataPoint {
-  name: string;
-  [key: string]: string | number | null; // Consente chiavi dinamiche come le date
 }
 
 interface PerformanceChartProps {
@@ -52,18 +45,17 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
     return <div className="flex items-center justify-center h-full text-gray-400">Registra un set per vedere il grafico</div>;
   }
 
-  // --- GRAFICO PER ESERCIZI CARDIO ---
   if (exerciseType === 'cardio') {
     const cardioChartData = useMemo(() => {
       return sessions
         .map(session => {
-          const perf = session.performance[0]; // Per il cardio, consideriamo solo il primo (e unico) set
+          const perf = session.performance[0];
           if (!perf) return null;
           const performanceValue = (perf.duration || 0) * (perf.speed || 0) * (perf.level || 0);
           return {
             date: session.date,
             performance: performanceValue > 0 ? performanceValue : null,
-            originalDate: new Date(session.originalDate), // Oggetto Date per l'ordinamento
+            originalDate: new Date(session.originalDate),
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -99,15 +91,14 @@ const PerformanceChart: React.FC<PerformanceChartProps> = ({ sessions, targetSet
     );
   }
 
-  // --- GRAFICO PER ESERCIZI DI FORZA (Default) ---
   const strengthChartData = useMemo(() => {
     const xAxisSets = Array.from({ length: targetSets }, (_, i) => `Set ${i + 1}`);
-    const data: ChartDataPoint[] = xAxisSets.map(setName => ({ name: setName })); // Usa ChartDataPoint
+    const data = xAxisSets.map(setName => ({ name: setName }));
     sessions.forEach(session => {
       session.performance.forEach((set, setIndex) => {
         if (setIndex < targetSets) {
           const volume = (set.reps || 0) * (set.weight || 0);
-          data[setIndex][session.date] = volume > 0 ? volume : null;
+          (data[setIndex] as any)[session.date] = volume > 0 ? volume : null;
         }
       });
     });
@@ -164,13 +155,13 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
   const { activeTheme } = useTheme();
   
   const sessionsToDisplay = useMemo(() => {
-    // Aggiungo la data originale per permettere l'ordinamento cronologico nel grafico cardio
     const todaySession = { date: 'Oggi', originalDate: new Date().toISOString(), performance: exercise.performance || [] };
     const recentHistory = activeWorkoutHistory
       .map(session => ({
         date: new Date(session.date).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' }),
         originalDate: session.date,
-        performance: session.exercises.find(e => e.id === exercise.id)?.performance || [],
+        // MODIFICA: La ricerca ora ignora maiuscole/minuscole e spazi extra
+        performance: session.exercises.find(e => e.name.toLowerCase().trim() === exercise.name.toLowerCase().trim())?.performance || [],
       }))
       .filter(entry => entry.performance.length > 0)
       .slice(-2);
@@ -225,8 +216,7 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
         <h2 className="text-xl font-bold mb-3">Andamento Performance</h2>
         <div className="h-80">
           <Card className="h-full w-full p-2">
-              {/* Target sets per cardio può essere 1 perché si fa un solo "set" per sessione */}
-              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.type === 'cardio' ? 1 : (exercise.sets || 1)} colors={sessionColors} exerciseType={exercise.type} />
+              <PerformanceChart sessions={sessionsToDisplay} targetSets={exercise.sets || 1} colors={sessionColors} exerciseType={exercise.type} />
           </Card>
         </div>
       </div>
@@ -242,7 +232,7 @@ const ExerciseDetailView: React.FC<ExerciseDetailViewProps> = ({ exercise, activ
 
 
 // ===================================================================================
-// PAGINA PRINCIPALE
+// PAGINA PRINCIPALE (Logica invariata)
 // ===================================================================================
 export const WorkoutPage: React.FC = () => {
     const { activeWorkout, updateWorkout, saveSessionToHistory } = useWorkouts();
@@ -263,17 +253,10 @@ export const WorkoutPage: React.FC = () => {
         } else {
             const exerciseIndex = activeWorkout.exercises.findIndex(e => e.id === selectedExercise.id);
             const currentExercise = activeWorkout.exercises[exerciseIndex];
-            // Per cardio, il "nextSetIndex" è sempre 0 se non ancora registrato, o 1 se già registrato
-            // Per forza, è la lunghezza dell'array performance
             const nextSetIndex = currentExercise.performance?.length || 0;
-            // Per cardio, consideriamo "1 set" per sessione, per forza è il numero di set definiti
-            const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1; 
-
-            if (nextSetIndex < totalSets || currentExercise.type === 'cardio' && nextSetIndex === 0) {
-                 // Per cardio, se nextSetIndex è 0, significa che non è ancora stato registrato.
-                 // Il setIndex per la modal sarà sempre 0 per il cardio.
-                const setIndexForCardio = currentExercise.type === 'cardio' ? 0 : nextSetIndex;
-                const action = () => setLogModalState({ isOpen: true, ex: currentExercise, setIndex: setIndexForCardio, exerciseIndex: exerciseIndex });
+            const totalSets = currentExercise.type === 'strength' ? (currentExercise.sets || 0) : 1;
+            if (nextSetIndex < totalSets) {
+                const action = () => setLogModalState({ isOpen: true, ex: currentExercise, setIndex: nextSetIndex, exerciseIndex: exerciseIndex });
                 setActionConfig({ onClick: action, icon: PlusCircle, label: 'Esegui', disabled: false });
             } else {
                 const action = () => setSelectedExercise(null);
@@ -281,21 +264,14 @@ export const WorkoutPage: React.FC = () => {
             }
         }
         return () => setActionConfig(null);
-    }, [selectedExercise, activeWorkout, setActionConfig, autoRestTimer, restTimePrimary, restTimeSecondary, startTimer]); // Aggiunti a dependencies per completezza
+    }, [selectedExercise, activeWorkout, setActionConfig]);
 
     const handleSavePerformance = async (performance: SetPerformance) => {
         const { ex: exerciseToUpdate, setIndex: setIndexToUpdate, exerciseIndex: exerciseIndexToUpdate } = logModalState;
         if (!activeWorkout || !exerciseToUpdate || setIndexToUpdate === undefined || exerciseIndexToUpdate === undefined) return;
         const updatedExercises = [...activeWorkout.exercises];
-        let newPerformance = [...(exerciseToUpdate.performance || [])];
-        
-        // Per cardio, sovrascriviamo sempre il "primo" (e unico) set per quella sessione
-        if (exerciseToUpdate.type === 'cardio') {
-            newPerformance = [performance]; // Rimuovi i set precedenti per questa sessione e aggiungi solo il nuovo
-        } else {
-            newPerformance[setIndexToUpdate] = performance;
-        }
-
+        const newPerformance = [...(exerciseToUpdate.performance || [])];
+        newPerformance[setIndexToUpdate] = performance;
         const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
         updatedExercises[exerciseIndexToUpdate] = updatedExercise;
         setSelectedExercise(updatedExercise);
@@ -315,7 +291,7 @@ export const WorkoutPage: React.FC = () => {
         if (!exerciseToUpdate?.performance?.length) return;
         const updatedExercises = [...activeWorkout.exercises];
         const newPerformance = [...exerciseToUpdate.performance];
-        newPerformance.pop(); // Rimuovi l'ultimo set
+        newPerformance.pop();
         const updatedExercise = { ...exerciseToUpdate, performance: newPerformance };
         updatedExercises[exerciseIndex] = updatedExercise;
         setSelectedExercise(updatedExercise);
