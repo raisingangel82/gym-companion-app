@@ -6,8 +6,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Trash2, PlusCircle, ArrowUp, ArrowDown, Timer } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
-// ASSUMIAMO CHE IL TUO FILE types.ts ABBIA ORA Exercise CON ID OBBLIGATORIO
-import type { Workout, WorkoutData, Exercise } from '../types'; 
+import type { Workout, WorkoutData, Exercise } from '../types';
 
 interface EditorProps {
   isOpen: boolean;
@@ -19,18 +18,17 @@ interface EditorProps {
 export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onSave, workout }) => {
   const { activeTheme } = useTheme();
   const [name, setName] = useState('');
-  // Ora EditableExercise è direttamente Exercise, dato che ha ID
   const [exercises, setExercises] = useState<Exercise[]>([]); 
   
   useEffect(() => {
     if (isOpen) {
       setName(workout?.name || '');
-      // Assegna un ID univoco a ogni esercizio se non presente (dovrebbe già averlo se caricato)
-      // E assicurati che i campi numerici siano 0 se nulli/undefined
       const initialExercises: Exercise[] = workout?.exercises.length 
         ? workout.exercises.map(ex => ({ 
             ...ex, 
             id: ex.id || crypto.randomUUID(), 
+            imageUrl: ex.imageUrl || null,
+            performance: ex.performance || [],
             sets: ex.sets || 0,
             weight: ex.weight || 0,
             duration: ex.duration || 0,
@@ -46,7 +44,9 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
             reps: '8-12', 
             weight: 0, 
             restTimerType: 'primary',
-            performance: [] // Assicurati che performance sia sempre presente
+            performance: [],
+            // CORREZIONE: Aggiunta la proprietà 'imageUrl' mancante
+            imageUrl: null, 
           }];
       setExercises(initialExercises);
     }
@@ -87,7 +87,9 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
       reps: '8-12', 
       weight: 0, 
       restTimerType: 'primary',
-      performance: [] // Nuovi esercizi hanno performance vuota
+      performance: [],
+      // CORREZIONE: Aggiunta la proprietà 'imageUrl' mancante
+      imageUrl: null, 
     }]);
   };
 
@@ -109,8 +111,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
     if (validExercises.length === 0) return alert("La scheda deve contenere almeno un esercizio valido.");
 
     const finalizedExercises = validExercises.map(ex => {
-      // Crea un esercizio pulito in base al suo tipo
-      const baseExercise: Exercise = {
+      const baseExercise = {
         id: ex.id,
         name: ex.name!,
         type: ex.type,
@@ -124,9 +125,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
           duration: ex.duration || 0,
           speed: ex.speed || 0,
           level: ex.level || 0,
-          // Rimuovi campi strength-specifici se presenti
-          sets: undefined, reps: undefined, weight: undefined, restTimerType: undefined,
-        };
+        } as Exercise;
       } else { // strength
         return {
           ...baseExercise,
@@ -134,9 +133,7 @@ export const WorkoutEditorModal: React.FC<EditorProps> = ({ isOpen, onClose, onS
           reps: ex.reps || '0',
           weight: ex.weight || 0,
           restTimerType: ex.restTimerType || 'primary',
-          // Rimuovi campi cardio-specifici se presenti
-          duration: undefined, speed: undefined, level: undefined,
-        };
+        } as Exercise;
       }
     });
 
